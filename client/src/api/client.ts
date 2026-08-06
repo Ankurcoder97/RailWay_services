@@ -1,6 +1,7 @@
 import type { LiveTrainStatus, TrainSearchResult, WeatherInfo, Landmark, ElevationAnalytics } from '../types/index.js';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Automatically connects to live Render backend as production fallback
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'https://railway-services-1.onrender.com/api';
 
 export async function fetchTrainSearch(query: string): Promise<TrainSearchResult[]> {
   if (!query.trim()) return [];
