@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: railgaadi-backend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: RAILRADAR_API_KEY
+        sync: false
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: OPENTOPOGRAPHY_API_KEY
+        sync: false
