@@ -1,0 +1,13 @@
+{
+  "name": "railgadi-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:server": "cd server && npm install",
+    "install:client": "cd client && npm install",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && npm run build",
+    "build": "npm run install:server && npm run build:server",
+    "start": "cd server && npm start"
+  }
+}
