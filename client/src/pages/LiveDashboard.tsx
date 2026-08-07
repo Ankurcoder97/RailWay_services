@@ -13,6 +13,7 @@ import TravelCompanionCard from '../components/companion/TravelCompanionCard.js'
 import SettingsView from '../components/settings/SettingsView.js';
 import ShareModal from '../components/ui/ShareModal.js';
 import type { Station } from '../types/index.js';
+import { Heart } from 'lucide-react';
 
 export default function LiveDashboard() {
   const { selectedTrainNumber, activeTab } = useTrainStore();
@@ -117,9 +118,15 @@ export default function LiveDashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 py-6 text-center text-xs text-slate-500 space-y-1">
-        <p>&copy; {new Date().getFullYear()} RailGaadi &bull; Powered by RailRadar.in, OpenWeather, OpenTopography & MapLibre GL</p>
-        <p className="text-[11px] text-slate-600">Designed with Apple Maps aesthetics for Indian Railways passengers</p>
+      <footer className="border-t border-slate-800 py-6 text-center text-xs text-slate-400 space-y-2 bg-slate-900/50">
+        <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-white">
+          <span>Created with</span>
+          <Heart className="w-4 h-4 fill-rose-500 text-rose-500 inline-block animate-pulse" />
+          <span>by <strong className="text-blue-400 font-bold">Ankur</strong></span>
+        </p>
+        <p className="text-[11px] text-slate-400">
+          &copy; {new Date().getFullYear()} RailGaadi &bull; Powered by RailRadar.in, OpenWeather, OpenTopography & MapTiler
+        </p>
       </footer>
 
       {/* Share Modal */}

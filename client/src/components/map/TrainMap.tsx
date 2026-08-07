@@ -16,6 +16,10 @@ export default function TrainMap({ status, selectedStation }: TrainMapProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const trainMarkerRef = useRef<maplibregl.Marker | null>(null);
 
+  // Animation references for smooth real-time gliding motion
+  const currentPosRef = useRef<[number, number]>([status.currentLng, status.currentLat]);
+  const animFrameRef = useRef<number | null>(null);
+
   const { followTrainOnMap, setFollowTrainOnMap } = useTrainStore();
   const [mapTheme, setMapTheme] = useState<MapTilerTheme>('dark');
 
@@ -111,6 +115,7 @@ export default function TrainMap({ status, selectedStation }: TrainMapProps) {
         },
       });
 
+      // Add Station Markers along the track
       status.stations.forEach((st: Station) => {
         const el = document.createElement('div');
         el.className = 'w-6 h-6 flex items-center justify-center cursor-pointer group';
@@ -145,12 +150,16 @@ export default function TrainMap({ status, selectedStation }: TrainMapProps) {
           .addTo(map);
       });
 
+      // Create Custom Animated Train Marker Element
       const trainEl = document.createElement('div');
       trainEl.className = 'relative flex items-center justify-center cursor-pointer';
       trainEl.innerHTML = `
         <div class="train-marker-ring"></div>
-        <div class="w-8 h-8 rounded-full bg-blue-600 border-2 border-white shadow-md flex items-center justify-center text-white font-bold text-xs z-10">
-          🚆
+        <div className="relative">
+          <div class="w-9 h-9 rounded-full bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center text-white font-bold text-sm z-10">
+            🚆
+          </div>
+          <div id="train-arrow" class="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-cyan-400 rotate-45 rounded-sm z-0"></div>
         </div>
       `;
 
@@ -163,9 +172,11 @@ export default function TrainMap({ status, selectedStation }: TrainMapProps) {
 
     return () => {
       map.remove();
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, [mapTheme, status.trainNumber]);
 
+  // Selected Station Fly-To
   useEffect(() => {
     if (selectedStation && mapRef.current) {
       mapRef.current.flyTo({
@@ -177,20 +188,52 @@ export default function TrainMap({ status, selectedStation }: TrainMapProps) {
     }
   }, [selectedStation]);
 
+  // Smooth Motion Interpolation Animation Loop
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !trainMarkerRef.current) return;
 
-    if (trainMarkerRef.current) {
-      trainMarkerRef.current.setLngLat([status.currentLng, status.currentLat]);
-    }
+    const startLng = currentPosRef.current[0];
+    const startLat = currentPosRef.current[1];
+    const targetLng = status.currentLng;
+    const targetLat = status.currentLat;
 
-    if (followTrainOnMap && mapRef.current && !selectedStation) {
-      mapRef.current.easeTo({
-        center: [status.currentLng, status.currentLat],
-        zoom: 8.5,
-        duration: 1500,
-      });
-    }
+    // Check if position changed
+    if (startLng === targetLng && startLat === targetLat) return;
+
+    const startTime = performance.now();
+    const duration = 2500; // 2.5s smooth transition glide
+
+    const animateStep = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease-out quadratic interpolation
+      const easeProgress = 1 - (1 - progress) * (1 - progress);
+
+      const interpLng = startLng + (targetLng - startLng) * easeProgress;
+      const interpLat = startLat + (targetLat - startLat) * easeProgress;
+
+      currentPosRef.current = [interpLng, interpLat];
+
+      if (trainMarkerRef.current) {
+        trainMarkerRef.current.setLngLat([interpLng, interpLat]);
+      }
+
+      if (followTrainOnMap && mapRef.current && !selectedStation) {
+        mapRef.current.easeTo({
+          center: [interpLng, interpLat],
+          duration: 0,
+        });
+      }
+
+      if (progress < 1) {
+        animFrameRef.current = requestAnimationFrame(animateStep);
+      }
+    };
+
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    animFrameRef.current = requestAnimationFrame(animateStep);
+
   }, [status.currentLat, status.currentLng, followTrainOnMap, selectedStation]);
 
   const handleZoomIn = () => mapRef.current?.zoomIn();
@@ -260,6 +303,12 @@ export default function TrainMap({ status, selectedStation }: TrainMapProps) {
           <Navigation className={`w-4 h-4 ${followTrainOnMap ? 'animate-pulse' : ''}`} />
         </button>
 
+      </div>
+
+      {/* Live Motion Status Indicator Badge */}
+      <div className="absolute top-4 left-4 z-10 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl shadow-md text-xs font-bold text-white flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>Live GPS Motion &bull; {status.speedKmh} km/h</span>
       </div>
 
       {/* Map Control Buttons */}
