@@ -1,11 +1,31 @@
 import { useState } from 'react';
-import { Search, ArrowUpDown, X } from 'lucide-react';
+import { Search, ArrowUpDown, X, MapPin } from 'lucide-react';
 import { fetchTrainsBetween } from '../../api/client.js';
 import type { TrainSearchResult } from '../../types/index.js';
 
 interface WimtSearchCardsProps {
   onSelectTrain: (trainNumber: string) => void;
 }
+
+const COMMON_STATIONS = [
+  { name: 'Goghat (Gosaigaonhat)', code: 'GOGH' },
+  { name: 'Tarakeswar', code: 'TAK' },
+  { name: 'Haripal', code: 'HPL' },
+  { name: 'Howrah Junction', code: 'HWH' },
+  { name: 'Mumbai Central', code: 'MMCT' },
+  { name: 'New Delhi', code: 'NDLS' },
+  { name: 'Kanpur Central', code: 'CNB' },
+  { name: 'Prayagraj Junction', code: 'PRYJ' },
+  { name: 'Varanasi Junction', code: 'BSB' },
+  { name: 'Kolkata Sealdah', code: 'SDAH' },
+  { name: 'Patna Junction', code: 'PNBE' },
+  { name: 'Chennai Central', code: 'MAS' },
+  { name: 'KSR Bengaluru City', code: 'SBC' },
+  { name: 'Bengaluru Cantt.', code: 'BNC' },
+  { name: 'Hyderabad Deccan', code: 'HYB' },
+  { name: 'Godhra Junction', code: 'GDA' },
+  { name: 'Kharsaliya', code: 'KRSA' },
+];
 
 const COMMON_RECENT_SEARCHES = [
   { number: '12951', name: 'Mumbai Central - New Delhi Tejas Rajdhani', route: 'MMCT - NDLS' },
@@ -21,6 +41,9 @@ const COMMON_RECENT_SEARCHES = [
 export default function WimtSearchCards({ onSelectTrain }: WimtSearchCardsProps) {
   const [fromQuery, setFromQuery] = useState('Goghat (GOGH)');
   const [toQuery, setToQuery] = useState('Howrah Junction (HWH)');
+  const [showFromDropdown, setShowFromDropdown] = useState(false);
+  const [showToDropdown, setShowToDropdown] = useState(false);
+
   const [spotTrainQuery, setSpotTrainQuery] = useState('12951 Tejas Rajdhani Express');
   const [liveStationQuery, setLiveStationQuery] = useState('Howrah Junction (HWH)');
 
@@ -59,6 +82,14 @@ export default function WimtSearchCards({ onSelectTrain }: WimtSearchCardsProps)
     return str.substring(0, 3).toUpperCase();
   };
 
+  const filteredFromStations = COMMON_STATIONS.filter(
+    s => s.name.toLowerCase().includes(fromQuery.toLowerCase()) || s.code.toLowerCase().includes(fromQuery.toLowerCase())
+  );
+
+  const filteredToStations = COMMON_STATIONS.filter(
+    s => s.name.toLowerCase().includes(toQuery.toLowerCase()) || s.code.toLowerCase().includes(toQuery.toLowerCase())
+  );
+
   return (
     <div className="max-w-2xl mx-auto space-y-4 font-sans select-none pb-8">
       
@@ -74,21 +105,49 @@ export default function WimtSearchCards({ onSelectTrain }: WimtSearchCardsProps)
           <div className="flex items-center gap-3 relative z-10">
             <div className="w-4 h-4 rounded-full bg-emerald-600 border-2 border-white shadow-sm shrink-0"></div>
             
-            <div className="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 focus-within:border-blue-600">
-              <span className="px-1.5 py-0.5 bg-blue-600 text-white font-bold text-[11px] rounded uppercase shrink-0">
-                {extractCode(fromQuery)}
-              </span>
-              <input
-                type="text"
-                value={fromQuery}
-                onChange={(e) => setFromQuery(e.target.value)}
-                placeholder="From Station"
-                className="w-full bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
-              />
-              {fromQuery && (
-                <button onClick={() => setFromQuery('')} className="text-slate-400 hover:text-slate-600">
-                  <X className="w-4 h-4" />
-                </button>
+            <div className="relative flex-1">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 focus-within:border-blue-600">
+                <span className="px-1.5 py-0.5 bg-blue-600 text-white font-bold text-[11px] rounded uppercase shrink-0">
+                  {extractCode(fromQuery)}
+                </span>
+                <input
+                  type="text"
+                  value={fromQuery}
+                  onChange={(e) => {
+                    setFromQuery(e.target.value);
+                    setShowFromDropdown(true);
+                  }}
+                  onFocus={() => setShowFromDropdown(true)}
+                  placeholder="From Station"
+                  className="w-full bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
+                />
+                {fromQuery && (
+                  <button onClick={() => setFromQuery('')} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* From Autocomplete Dropdown List */}
+              {showFromDropdown && filteredFromStations.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-300 rounded-md shadow-lg z-30 max-h-48 overflow-y-auto">
+                  {filteredFromStations.map((st) => (
+                    <div
+                      key={st.code}
+                      onClick={() => {
+                        setFromQuery(`${st.name} (${st.code})`);
+                        setShowFromDropdown(false);
+                      }}
+                      className="px-3 py-2 text-xs text-slate-800 hover:bg-blue-50 cursor-pointer flex justify-between items-center border-b border-slate-100"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                        <span className="font-semibold">{st.name}</span>
+                      </div>
+                      <span className="font-bold text-blue-600">({st.code})</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -108,21 +167,49 @@ export default function WimtSearchCards({ onSelectTrain }: WimtSearchCardsProps)
           <div className="flex items-center gap-3 relative z-10">
             <div className="w-4 h-4 rounded-full bg-amber-600 border-2 border-white shadow-sm shrink-0"></div>
             
-            <div className="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 focus-within:border-blue-600">
-              <span className="px-1.5 py-0.5 bg-blue-600 text-white font-bold text-[11px] rounded uppercase shrink-0">
-                {extractCode(toQuery)}
-              </span>
-              <input
-                type="text"
-                value={toQuery}
-                onChange={(e) => setToQuery(e.target.value)}
-                placeholder="To Station"
-                className="w-full bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
-              />
-              {toQuery && (
-                <button onClick={() => setToQuery('')} className="text-slate-400 hover:text-slate-600">
-                  <X className="w-4 h-4" />
-                </button>
+            <div className="relative flex-1">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 focus-within:border-blue-600">
+                <span className="px-1.5 py-0.5 bg-blue-600 text-white font-bold text-[11px] rounded uppercase shrink-0">
+                  {extractCode(toQuery)}
+                </span>
+                <input
+                  type="text"
+                  value={toQuery}
+                  onChange={(e) => {
+                    setToQuery(e.target.value);
+                    setShowToDropdown(true);
+                  }}
+                  onFocus={() => setShowToDropdown(true)}
+                  placeholder="To Station"
+                  className="w-full bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
+                />
+                {toQuery && (
+                  <button onClick={() => setToQuery('')} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* To Autocomplete Dropdown List */}
+              {showToDropdown && filteredToStations.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-300 rounded-md shadow-lg z-30 max-h-48 overflow-y-auto">
+                  {filteredToStations.map((st) => (
+                    <div
+                      key={st.code}
+                      onClick={() => {
+                        setToQuery(`${st.name} (${st.code})`);
+                        setShowToDropdown(false);
+                      }}
+                      className="px-3 py-2 text-xs text-slate-800 hover:bg-blue-50 cursor-pointer flex justify-between items-center border-b border-slate-100"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                        <span className="font-semibold">{st.name}</span>
+                      </div>
+                      <span className="font-bold text-blue-600">({st.code})</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

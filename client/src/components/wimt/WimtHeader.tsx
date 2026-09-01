@@ -1,4 +1,4 @@
-import { Menu, MoreVertical, Search, Ticket, Armchair, MapPin } from 'lucide-react';
+import { Menu, MoreVertical, Search, MapPin } from 'lucide-react';
 import { useTrainStore } from '../../store/useTrainStore.js';
 
 export default function WimtHeader() {
@@ -25,7 +25,7 @@ export default function WimtHeader() {
         </div>
       </div>
 
-      {/* Navigation Tabs (SPOT, PNR, SEATS, LIVE MAP) */}
+      {/* Navigation Tabs (SPOT, LIVE MAP) */}
       <div className="max-w-4xl mx-auto px-4 flex items-center border-t border-white/10">
         <button
           onClick={() => setActiveTab('dashboard')}
@@ -53,36 +53,6 @@ export default function WimtHeader() {
             <span>LIVE MAP</span>
           </div>
           {activeTab === 'map' && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-t-sm"></div>
-          )}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('companion')}
-          className={`flex-1 py-3 text-center text-sm font-bold tracking-wider uppercase transition-all relative ${
-            activeTab === 'companion' ? 'text-white' : 'text-blue-200 hover:text-white'
-          }`}
-        >
-          <div className="flex items-center justify-center gap-1.5">
-            <Ticket className="w-4 h-4" />
-            <span>PNR</span>
-          </div>
-          {activeTab === 'companion' && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-t-sm"></div>
-          )}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('analytics')}
-          className={`flex-1 py-3 text-center text-sm font-bold tracking-wider uppercase transition-all relative ${
-            activeTab === 'analytics' ? 'text-white' : 'text-blue-200 hover:text-white'
-          }`}
-        >
-          <div className="flex items-center justify-center gap-1.5">
-            <Armchair className="w-4 h-4" />
-            <span>SEATS</span>
-          </div>
-          {activeTab === 'analytics' && (
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-t-sm"></div>
           )}
         </button>

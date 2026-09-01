@@ -8,7 +8,6 @@ exports.getTrainsBetweenStations = getTrainsBetweenStations;
 exports.getLiveTrainStatus = getLiveTrainStatus;
 const axios_1 = __importDefault(require("axios"));
 const RAILRADAR_BASE_URL = 'https://api.railradar.in/v1';
-// Station Code Dictionary for common Indian Railway stations including Suburban & Local lines
 const STATION_CODE_MAP = {
     goghat: 'GOGH',
     gosaigaonhat: 'GOGH',
@@ -85,7 +84,7 @@ function formatTime(isoString) {
         const d = new Date(isoString);
         if (isNaN(d.getTime()))
             return undefined;
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
     }
     catch {
         return undefined;
@@ -119,7 +118,6 @@ async function searchTrains(query) {
             // Fallthrough
         }
     }
-    // Pre-configured list including Express and Local Suburban EMUs
     const popularList = [
         { trainNumber: '37305', trainName: 'Howrah - Haripal Local (EMU)', source: 'Howrah (HWH)', destination: 'Haripal (HPL)', runsOn: ['Daily'] },
         { trainNumber: '37309', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
@@ -234,17 +232,18 @@ async function getLiveTrainStatus(trainId) {
             if (trainMeta.destination?.code && trainMeta.destination?.lat) {
                 coordsMap.set(trainMeta.destination.code, { lat: trainMeta.destination.lat, lng: trainMeta.destination.lng });
             }
-            const rawRoute = liveData.route || [];
+            const rawRoute = Array.isArray(liveData.route) && liveData.route.length > 0 ? liveData.route : (detailsData?.route || []);
             const totalDist = trainMeta.distance || (rawRoute.length > 0 ? Math.round(rawRoute[rawRoute.length - 1].distance || 1000) : 1000);
+            const currentCode = liveData.currentLocation?.stationCode;
             const stations = rawRoute.map((st, idx) => {
                 const code = st.stationCode || st.station?.code || `STN-${idx}`;
                 const name = st.stationName || st.station?.name || `Station ${code}`;
                 const coords = coordsMap.get(code) || {
-                    lat: 22.5828 + (idx * 0.02),
-                    lng: 88.3428 - (idx * 0.02)
+                    lat: (trainMeta.source?.lat || 22.5828) + (idx * 0.02),
+                    lng: (trainMeta.source?.lng || 88.3428) - (idx * 0.02)
                 };
-                const isCurrentLoc = liveData.currentLocation?.stationCode === code || st.status === 'at-station' || st.status === 'current';
-                const isPassed = st.status === 'departed' || (!isCurrentLoc && idx < (rawRoute.findIndex((r) => r.status === 'at-station' || r.status === 'current') || 1));
+                const isCurrentLoc = currentCode ? code === currentCode : (st.status === 'at-station' || st.status === 'current');
+                const isPassed = st.status === 'departed' || (!isCurrentLoc && idx < (rawRoute.findIndex((r) => r.stationCode === currentCode || r.status === 'at-station' || r.status === 'current') || 1));
                 return {
                     code,
                     name,
@@ -254,7 +253,7 @@ async function getLiveTrainStatus(trainId) {
                     scheduledDeparture: formatTime(st.scheduledDeparture),
                     actualArrival: formatTime(st.actualArrival || st.scheduledArrival),
                     actualDeparture: formatTime(st.actualDeparture || st.scheduledDeparture),
-                    delayMinutes: st.delayDeparture || st.delayArrival || liveData.delayMinutes || 0,
+                    delayMinutes: st.delayMinutes || st.delayDeparture || st.delayArrival || liveData.delayMinutes || 0,
                     platform: st.platform ? String(st.platform) : '1',
                     distanceFromSourceKm: Math.round(st.distance || 0),
                     status: isCurrentLoc ? 'current' : isPassed ? 'passed' : 'upcoming',
@@ -262,15 +261,25 @@ async function getLiveTrainStatus(trainId) {
                 };
             });
             const currentIdx = stations.findIndex(s => s.status === 'current');
-            const activeCurrentStation = currentIdx >= 0 ? stations[currentIdx] : stations[Math.min(1, stations.length - 1)];
-            const activeNextStation = stations[Math.min(currentIdx >= 0 ? currentIdx + 1 : 2, stations.length - 1)];
+            const activeCurrentStation = currentIdx >= 0 ? stations[currentIdx] : {
+                code: liveData.currentLocation?.stationCode || 'LMK',
+                name: liveData.currentLocation?.stationName || 'Current Location',
+                lat: trainMeta.source?.lat || 22.5828,
+                lng: trainMeta.source?.lng || 88.3428,
+                delayMinutes: liveData.delayMinutes || 0,
+                platform: '1',
+                distanceFromSourceKm: Math.round(liveData.currentLocation?.distanceFromOriginKm || 500),
+                status: 'current',
+                elevationMeters: 120
+            };
+            const activeNextStation = stations[Math.min(currentIdx >= 0 ? currentIdx + 1 : 1, stations.length - 1)] || activeCurrentStation;
             const distCovered = activeCurrentStation.distanceFromSourceKm;
             const distRemaining = Math.max(totalDist - distCovered, 0);
             const progressPercent = totalDist > 0 ? Math.min(Math.round((distCovered / totalDist) * 100), 100) : 50;
             const routeCoordinates = stations.map(s => [s.lng, s.lat]);
             return {
-                trainNumber: trainMeta.number || trainNum,
-                trainName: trainMeta.name || `Local/Express ${trainNum}`,
+                trainNumber: liveData.trainNumber || trainMeta.number || trainNum,
+                trainName: liveData.trainName || trainMeta.name || `Train ${trainNum}`,
                 sourceStation: trainMeta.source?.name ? `${trainMeta.source.name} (${trainMeta.source.code})` : stations[0]?.name || 'Origin',
                 destinationStation: trainMeta.destination?.name ? `${trainMeta.destination.name} (${trainMeta.destination.code})` : stations[stations.length - 1]?.name || 'Destination',
                 currentStation: activeCurrentStation,
@@ -278,7 +287,7 @@ async function getLiveTrainStatus(trainId) {
                 lastUpdated: liveData.lastUpdatedAt || new Date().toISOString(),
                 isStale: Boolean(liveData.isStale),
                 delayMinutes: liveData.delayMinutes || activeCurrentStation.delayMinutes || 0,
-                speedKmh: trainMeta.avgSpeed || trainMeta.maxSpeed || 45,
+                speedKmh: trainMeta.avgSpeed || trainMeta.maxSpeed || 85,
                 progressPercent,
                 distanceCoveredKm: distCovered,
                 distanceRemainingKm: distRemaining,
