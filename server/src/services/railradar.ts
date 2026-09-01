@@ -76,16 +76,38 @@ function resolveStationCode(query: string): string {
 
 function formatTime(isoString?: string): string | undefined {
   if (!isoString) return undefined;
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) {
-      // If already hh:mm format, return as is
-      return isoString;
-    }
-    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-  } catch {
-    return isoString;
+  const clean = String(isoString).trim();
+
+  // 1. If already 12-hour format with AM/PM (e.g. "11:05 PM")
+  if (/\d{1,2}:\d{2}\s*(am|pm)/i.test(clean)) {
+    return clean;
   }
+
+  // 2. If 24-hour time format HH:mm (e.g. "23:05", "17:00", "05:40")
+  const hhmmMatch = clean.match(/^(\d{1,2}):(\d{2})$/);
+  if (hhmmMatch) {
+    let hours = parseInt(hhmmMatch[1], 10);
+    const minutes = hhmmMatch[2];
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    if (hours === 0) hours = 12;
+    const formattedHours = hours < 10 ? `0${hours}` : `${hours}`;
+    return `${formattedHours}:${minutes} ${ampm}`;
+  }
+
+  // 3. If ISO timestamp string
+  if (clean.includes('T')) {
+    try {
+      const d = new Date(clean);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
+    } catch {
+      return clean;
+    }
+  }
+
+  return clean;
 }
 
 export async function searchTrains(query: string): Promise<TrainSearchResult[]> {
@@ -185,7 +207,8 @@ export async function getTrainsBetweenStations(fromQuery: string, toQuery: strin
       { trainNumber: '37327', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '04:30 PM', arrivalTime: '06:02 PM', runsOn: ['Daily'] },
       { trainNumber: '37335', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah (HWH)', destination: 'Goghat (GOGH)', departureTime: '06:15 PM', arrivalTime: '08:20 PM', runsOn: ['Daily'] },
       { trainNumber: '37343', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '08:25 PM', arrivalTime: '09:55 PM', runsOn: ['Daily'] },
-      { trainNumber: '37347', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:15 PM', arrivalTime: '11:45 PM', runsOn: ['Daily'] }
+      { trainNumber: '37347', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:15 PM', arrivalTime: '11:45 PM', runsOn: ['Daily'] },
+      { trainNumber: '37349', trainName: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '11:05 PM', arrivalTime: '12:35 AM', runsOn: ['Daily'] }
     ];
 
     if (apiTrains.length > 0) {
@@ -205,7 +228,8 @@ export async function getTrainsBetweenStations(fromQuery: string, toQuery: strin
       { trainNumber: '12609', trainName: 'KSR Bengaluru SF Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '01:35 PM', arrivalTime: '08:05 PM', runsOn: ['Daily'] },
       { trainNumber: '12296', trainName: 'Sanghamitra SF Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '01:55 PM', arrivalTime: '08:20 PM', runsOn: ['Daily'] },
       { trainNumber: '12577', trainName: 'Bagmati Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '02:45 PM', arrivalTime: '08:40 PM', runsOn: ['Mon', 'Fri'] },
-      { trainNumber: '12607', trainName: 'Lalbagh Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '03:35 PM', arrivalTime: '09:35 PM', runsOn: ['Daily'] }
+      { trainNumber: '12607', trainName: 'Lalbagh Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '03:35 PM', arrivalTime: '09:35 PM', runsOn: ['Daily'] },
+      { trainNumber: '12657', trainName: 'Chennai - Bengaluru Mail', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '11:05 PM', arrivalTime: '04:30 AM', runsOn: ['Daily'] }
     ];
   }
 
@@ -287,10 +311,8 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
         };
       });
 
-      // Ensure at least 1 station has status 'current'
       const hasCurrent = stations.some(s => s.status === 'current');
       if (!hasCurrent && stations.length > 0) {
-        // Pick station matching currentLocation or middle station
         const matchIdx = stations.findIndex(s => s.code === currentCode);
         const targetIdx = matchIdx >= 0 ? matchIdx : Math.min(1, stations.length - 1);
         stations[targetIdx].status = 'current';

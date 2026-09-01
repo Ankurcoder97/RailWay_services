@@ -13,16 +13,38 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
 
   const displayTime = (timeStr?: string) => {
     if (!timeStr) return '--:--';
-    if (timeStr.includes(':') && (timeStr.includes('AM') || timeStr.includes('PM'))) return timeStr;
-    if (timeStr.includes('T')) {
+    const clean = String(timeStr).trim();
+
+    // 1. If already 12-hour format with AM/PM (e.g. "11:05 PM")
+    if (/\d{1,2}:\d{2}\s*(am|pm)/i.test(clean)) {
+      return clean;
+    }
+
+    // 2. If 24-hour time format HH:mm (e.g. "23:05", "17:00", "05:40")
+    const hhmmMatch = clean.match(/^(\d{1,2}):(\d{2})$/);
+    if (hhmmMatch) {
+      let hours = parseInt(hhmmMatch[1], 10);
+      const minutes = hhmmMatch[2];
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      if (hours === 0) hours = 12;
+      const formattedHours = hours < 10 ? `0${hours}` : `${hours}`;
+      return `${formattedHours}:${minutes} ${ampm}`;
+    }
+
+    // 3. If ISO timestamp string (e.g. "2026-09-01T23:05:00+05:30")
+    if (clean.includes('T')) {
       try {
-        const d = new Date(timeStr);
-        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        const d = new Date(clean);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
       } catch {
-        return timeStr;
+        return clean;
       }
     }
-    return timeStr;
+
+    return clean;
   };
 
   // Find index of current train position
@@ -49,7 +71,7 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
 
           <div className="flex items-center gap-2">
             <button onClick={onRefresh} className="p-2 rounded hover:bg-white/10" title="Refresh Live Position">
-              <RefreshCw className="w-5 h-5 animate-spin-hover" />
+              <RefreshCw className="w-5 h-5" />
             </button>
           </div>
         </div>
