@@ -8,26 +8,34 @@ interface WimtTrainTimelineProps {
   onRefresh: () => void;
 }
 
-function timeToMinutes(timeStr?: string): number {
-  if (!timeStr) return 0;
-  const str = String(timeStr).trim();
-  let h = 0, m = 0;
-  if (str.includes('PM') || str.includes('pm')) {
-    const parts = str.replace(/(AM|PM|am|pm)/gi, '').trim().split(':');
-    h = parseInt(parts[0], 10) || 0;
-    m = parseInt(parts[1], 10) || 0;
-    if (h < 12) h += 12;
-  } else if (str.includes('AM') || str.includes('am')) {
-    const parts = str.replace(/(AM|PM|am|pm)/gi, '').trim().split(':');
-    h = parseInt(parts[0], 10) || 0;
-    m = parseInt(parts[1], 10) || 0;
-    if (h === 12) h = 0;
+function isTrainRunCompleted(lastArrTimeStr?: string, progressPercent: number = 0, distanceRemainingKm: number = 999): boolean {
+  if (progressPercent >= 100 || distanceRemainingKm === 0) return true;
+  if (!lastArrTimeStr) return false;
+
+  const cleanArr = String(lastArrTimeStr).trim();
+  let arrHours = 0, arrMins = 0;
+
+  const m12 = cleanArr.match(/^(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  if (m12) {
+    arrHours = parseInt(m12[1], 10);
+    arrMins = parseInt(m12[2], 10);
+    const ampm = m12[3].toUpperCase();
+    if (ampm === 'PM' && arrHours < 12) arrHours += 12;
+    if (ampm === 'AM' && arrHours === 12) arrHours = 0;
   } else {
-    const parts = str.split(':');
-    h = parseInt(parts[0], 10) || 0;
-    m = parseInt(parts[1], 10) || 0;
+    const parts = cleanArr.split(':');
+    arrHours = parseInt(parts[0], 10) || 0;
+    arrMins = parseInt(parts[1], 10) || 0;
   }
-  return h * 60 + m;
+
+  const now = new Date();
+  const arrDateToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), arrHours, arrMins);
+  const arrDateYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, arrHours, arrMins);
+
+  const diffHoursToday = (now.getTime() - arrDateToday.getTime()) / (1000 * 3600);
+  const diffHoursYesterday = (now.getTime() - arrDateYesterday.getTime()) / (1000 * 3600);
+
+  return (diffHoursToday > 0 && diffHoursToday < 20) || (diffHoursYesterday > 0 && diffHoursYesterday < 20);
 }
 
 export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTrainTimelineProps) {
@@ -80,15 +88,10 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
     return clean;
   };
 
-  // Determine if train run has completed based on arrival time & current time of day
   const lastStn = status.stations[status.stations.length - 1];
-  const lastArrTime = lastStn?.actualArrival || lastStn?.scheduledArrival || '03:40 PM';
+  const lastArrTime = lastStn?.actualArrival || lastStn?.scheduledArrival || '10:30 PM';
 
-  const now = new Date();
-  const currentMins = now.getHours() * 60 + now.getMinutes();
-  const arrMins = timeToMinutes(displayTime(lastArrTime));
-
-  const isCompletedRun = status.progressPercent >= 100 || status.distanceRemainingKm === 0 || (arrMins > 0 && currentMins > arrMins && (currentMins - arrMins) < 720);
+  const isCompletedRun = isTrainRunCompleted(displayTime(lastArrTime), status.progressPercent, status.distanceRemainingKm);
 
   // Find index of current train position
   const currentIdx = status.stations.findIndex(
