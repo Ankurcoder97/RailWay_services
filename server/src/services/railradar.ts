@@ -57,31 +57,31 @@ const STATION_CODE_MAP: Record<string, string> = {
   kota: 'KOTA',
 };
 
-const LOCAL_TRAINS_MASTER: Record<string, { name: string; source: string; dest: string; dep: string; arr: string; isUp: boolean }> = {
+const LOCAL_TRAINS_MASTER: Record<string, { name: string; source: string; sourceCode: string; dest: string; destCode: string; dep: string; arr: string; isUp: boolean }> = {
   // UP TRAINS (Goghat/Tarakeswar/Haripal -> Howrah)
-  '37306': { name: 'Haripal - Howrah Local (EMU)', source: 'Haripal (HPL)', dest: 'Howrah Junction (HWH)', dep: '07:15 AM', arr: '08:35 AM', isUp: true },
-  '37308': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '08:25 AM', arr: '09:55 AM', isUp: true },
-  '37310': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '09:30 AM', arr: '11:00 AM', isUp: true },
-  '37312': { name: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', dest: 'Howrah Junction (HWH)', dep: '10:55 AM', arr: '01:00 PM', isUp: true },
-  '37316': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '12:00 PM', arr: '01:30 PM', isUp: true },
-  '37320': { name: 'Tarakeswar - Howrah Fast Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '03:05 PM', arr: '04:30 PM', isUp: true },
-  '37328': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '06:15 PM', arr: '07:45 PM', isUp: true },
-  '37336': { name: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', dest: 'Howrah Junction (HWH)', dep: '08:35 PM', arr: '10:40 PM', isUp: true },
-  '37344': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '10:10 PM', arr: '11:40 PM', isUp: true },
+  '37306': { name: 'Haripal - Howrah Local (EMU)', source: 'Haripal (HPL)', sourceCode: 'HPL', dest: 'Howrah Junction (HWH)', destCode: 'HWH', dep: '07:15 AM', arr: '08:35 AM', isUp: true },
+  '37308': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', sourceCode: 'TAK', dest: 'Howrah Junction (HWH)', destCode: 'HWH', dep: '08:25 AM', arr: '09:55 AM', isUp: true },
+  '37310': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', sourceCode: 'TAK', dest: 'Howrah Junction (HWH)', destCode: 'HWH', dep: '09:30 AM', arr: '11:00 AM', isUp: true },
+  '37312': { name: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', sourceCode: 'GOGH', dest: 'Howrah Junction (HWH)', destCode: 'HWH', dep: '10:55 AM', arr: '01:00 PM', isUp: true },
+  '37316': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', sourceCode: 'TAK', dest: 'Howrah Junction (HWH)', destCode: 'HWH', dep: '12:00 PM', arr: '01:30 PM', isUp: true },
+  '37320': { name: 'Tarakeswar - Howrah Fast Local (EMU)', source: 'Tarakeswar (TAK)', sourceCode: 'TAK', dest: 'Howrah Junction (HWH)', destCode: 'HWH', dep: '03:05 PM', arr: '04:30 PM', isUp: true },
+  '37328': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', sourceCode: 'TAK', dest: 'Howrah Junction (HWH)', destCode: 'HWH', dep: '06:15 PM', arr: '07:45 PM', isUp: true },
+  '37336': { name: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', sourceCode: 'GOGH', dest: 'Howrah Junction (HWH)', destCode: 'HWH', dep: '08:35 PM', arr: '10:40 PM', isUp: true },
+  '37344': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', sourceCode: 'TAK', dest: 'Howrah Junction (HWH)', destCode: 'HWH', dep: '10:10 PM', arr: '11:40 PM', isUp: true },
 
   // DOWN TRAINS (Howrah -> Haripal/Tarakeswar/Goghat)
-  '37305': { name: 'Howrah - Haripal Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Haripal (HPL)', dep: '05:40 AM', arr: '07:00 AM', isUp: false },
-  '37307': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '06:40 AM', arr: '08:12 AM', isUp: false },
-  '37309': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '07:45 AM', arr: '09:15 AM', isUp: false },
-  '37311': { name: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Goghat (GOGH)', dep: '08:35 AM', arr: '10:40 AM', isUp: false },
-  '37315': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '10:15 AM', arr: '11:45 AM', isUp: false },
-  '37319': { name: 'Howrah - Tarakeswar Fast Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '01:25 PM', arr: '02:50 PM', isUp: false },
-  '37327': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '04:30 PM', arr: '06:02 PM', isUp: false },
-  '37335': { name: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Goghat (GOGH)', dep: '06:15 PM', arr: '08:20 PM', isUp: false },
-  '37343': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '08:25 PM', arr: '09:55 PM', isUp: false },
-  '37349': { name: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '10:05 PM', arr: '11:35 PM', isUp: false },
-  '37347': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '10:15 PM', arr: '11:45 PM', isUp: false },
-  '37351': { name: 'Howrah - Tarakeswar Late Night Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '11:05 PM', arr: '12:35 AM', isUp: false }
+  '37305': { name: 'Howrah - Haripal Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Haripal (HPL)', destCode: 'HPL', dep: '05:40 AM', arr: '07:00 AM', isUp: false },
+  '37307': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Tarakeswar (TAK)', destCode: 'TAK', dep: '06:40 AM', arr: '08:12 AM', isUp: false },
+  '37309': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Tarakeswar (TAK)', destCode: 'TAK', dep: '07:45 AM', arr: '09:15 AM', isUp: false },
+  '37311': { name: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Goghat (GOGH)', destCode: 'GOGH', dep: '08:35 AM', arr: '10:40 AM', isUp: false },
+  '37315': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Tarakeswar (TAK)', destCode: 'TAK', dep: '10:15 AM', arr: '11:45 AM', isUp: false },
+  '37319': { name: 'Howrah - Tarakeswar Fast Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Tarakeswar (TAK)', destCode: 'TAK', dep: '01:25 PM', arr: '02:50 PM', isUp: false },
+  '37327': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Tarakeswar (TAK)', destCode: 'TAK', dep: '04:30 PM', arr: '06:02 PM', isUp: false },
+  '37335': { name: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Goghat (GOGH)', destCode: 'GOGH', dep: '06:15 PM', arr: '08:20 PM', isUp: false },
+  '37343': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Tarakeswar (TAK)', destCode: 'TAK', dep: '08:25 PM', arr: '09:55 PM', isUp: false },
+  '37349': { name: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Tarakeswar (TAK)', destCode: 'TAK', dep: '10:05 PM', arr: '11:35 PM', isUp: false },
+  '37347': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Tarakeswar (TAK)', destCode: 'TAK', dep: '10:15 PM', arr: '11:45 PM', isUp: false },
+  '37351': { name: 'Howrah - Tarakeswar Late Night Local (EMU)', source: 'Howrah Junction (HWH)', sourceCode: 'HWH', dest: 'Tarakeswar (TAK)', destCode: 'TAK', dep: '11:05 PM', arr: '12:35 AM', isUp: false }
 };
 
 const HWH_TAK_MASTER_ROUTE = [
@@ -132,6 +132,31 @@ function timeToMinutes(timeStr?: string): number {
     m = parseInt(parts[1], 10) || 0;
   }
   return h * 60 + m;
+}
+
+function addMinutesToTime(baseTime12h: string, minutesToAdd: number): string {
+  const totalMins = timeToMinutes(baseTime12h) + minutesToAdd;
+  let h = Math.floor(totalMins / 60) % 24;
+  const m = totalMins % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  const formattedH = h < 10 ? `0${h}` : `${h}`;
+  const formattedM = m < 10 ? `0${m}` : `${m}`;
+  return `${formattedH}:${formattedM} ${ampm}`;
+}
+
+function getMasterRouteForTrain(sourceCode: string = 'HWH', destCode: string = 'TAK') {
+  let fullRoute = [...HWH_TAK_MASTER_ROUTE];
+  if (destCode === 'HWH') {
+    fullRoute.reverse();
+    const startIdx = fullRoute.findIndex(s => s.code === sourceCode);
+    if (startIdx >= 0) fullRoute = fullRoute.slice(startIdx);
+  } else {
+    const endIdx = fullRoute.findIndex(s => s.code === destCode);
+    if (endIdx >= 0) fullRoute = fullRoute.slice(0, endIdx + 1);
+  }
+  return fullRoute;
 }
 
 function resolveStationCode(query: string): string {
@@ -351,7 +376,6 @@ export async function getTrainsBetweenStations(fromQuery: string, toQuery: strin
       ];
     }
 
-    // Sort chronologically by departure time!
     resultList.sort((a, b) => timeToMinutes(a.departureTime) - timeToMinutes(b.departureTime));
 
     if (apiTrains.length > 0) {
@@ -402,7 +426,11 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
   const headers = { Authorization: `Bearer ${apiKey}` };
 
   const masterInfo = LOCAL_TRAINS_MASTER[cleanedId] || LOCAL_TRAINS_MASTER[trainNum];
-  const isUpTrain = masterInfo?.isUp ?? false;
+  const srcCode = masterInfo?.sourceCode || (masterInfo?.isUp ? 'TAK' : 'HWH');
+  const destCode = masterInfo?.destCode || (masterInfo?.isUp ? 'HWH' : 'TAK');
+
+  const masterRouteList = getMasterRouteForTrain(srcCode, destCode);
+  const baseDepTime = masterInfo?.dep || '10:15 PM';
 
   try {
     const [liveRes, detailsRes] = await Promise.allSettled([
@@ -426,26 +454,27 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
       }
 
       let rawRoute = Array.isArray(liveData.route) && liveData.route.length > 0 ? liveData.route : (detailsData?.route || []);
-      const masterRouteList = isUpTrain ? [...HWH_TAK_MASTER_ROUTE].reverse() : HWH_TAK_MASTER_ROUTE;
 
       if (masterInfo && masterRouteList.length > 0) {
         const rawCodeMap = new Map(rawRoute.map((r: any) => [r.stationCode || r.station?.code, r]));
         rawRoute = masterRouteList.map((masterSt, idx) => {
           const existing = rawCodeMap.get(masterSt.code);
           if (existing) return existing;
+          const minsOffset = Math.round(idx * 3.5);
+          const computedTime = addMinutesToTime(baseDepTime, minsOffset);
           return {
             stationCode: masterSt.code,
             stationName: masterSt.name,
             platform: masterSt.platform,
             distance: masterSt.dist,
-            scheduledArrival: idx === 0 ? masterInfo.dep : idx === masterRouteList.length - 1 ? masterInfo.arr : `10:${String(10 + idx).padStart(2, '0')}`,
-            scheduledDeparture: idx === 0 ? masterInfo.dep : idx === masterRouteList.length - 1 ? masterInfo.arr : `10:${String(10 + idx).padStart(2, '0')}`,
+            scheduledArrival: idx === 0 ? masterInfo.dep : idx === masterRouteList.length - 1 ? masterInfo.arr : computedTime,
+            scheduledDeparture: idx === 0 ? masterInfo.dep : idx === masterRouteList.length - 1 ? masterInfo.arr : computedTime,
             status: 'upcoming'
           };
         });
       }
 
-      const totalDist = masterInfo ? 84 : trainMeta.distance || (rawRoute.length > 0 ? Math.round(rawRoute[rawRoute.length - 1].distance || 1000) : 1000);
+      const totalDist = masterInfo ? (masterRouteList[masterRouteList.length - 1]?.dist || 57) : trainMeta.distance || 57;
       const currentCode = liveData.currentLocation?.stationCode || liveData.currentLocation?.station?.code;
 
       const stations: Station[] = rawRoute.map((st: any, idx: number) => {
@@ -458,16 +487,18 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
 
         const isCurrentLoc = currentCode ? code === currentCode : (st.status === 'at-station' || st.status === 'current');
         const isPassed = st.status === 'departed' || (!isCurrentLoc && idx < (rawRoute.findIndex((r: any) => r.stationCode === currentCode || r.status === 'at-station' || r.status === 'current') || 1));
+        const minsOffset = Math.round(idx * 3.5);
+        const computedTime = addMinutesToTime(baseDepTime, minsOffset);
 
         return {
           code,
           name,
           lat: coords.lat,
           lng: coords.lng,
-          scheduledArrival: formatTime(st.scheduledArrival || (idx === rawRoute.length - 1 ? masterInfo?.arr : undefined)),
-          scheduledDeparture: formatTime(st.scheduledDeparture || (idx === 0 ? masterInfo?.dep : undefined)),
-          actualArrival: formatTime(st.actualArrival || st.scheduledArrival || (idx === rawRoute.length - 1 ? masterInfo?.arr : undefined)),
-          actualDeparture: formatTime(st.actualDeparture || st.scheduledDeparture || (idx === 0 ? masterInfo?.dep : undefined)),
+          scheduledArrival: formatTime(st.scheduledArrival || (idx === rawRoute.length - 1 ? masterInfo?.arr : computedTime)),
+          scheduledDeparture: formatTime(st.scheduledDeparture || (idx === 0 ? masterInfo?.dep : computedTime)),
+          actualArrival: formatTime(st.actualArrival || st.scheduledArrival || (idx === rawRoute.length - 1 ? masterInfo?.arr : computedTime)),
+          actualDeparture: formatTime(st.actualDeparture || st.scheduledDeparture || (idx === 0 ? masterInfo?.dep : computedTime)),
           delayMinutes: st.delayMinutes || st.delayDeparture || st.delayArrival || liveData.delayMinutes || 0,
           platform: st.platform ? String(st.platform) : '1',
           distanceFromSourceKm: Math.round(st.distance || 0),
@@ -520,31 +551,36 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
     console.warn(`RailRadar API call note for ${trainNum}:`, err.message);
   }
 
-  const routeMasterList = isUpTrain ? [...HWH_TAK_MASTER_ROUTE].reverse() : HWH_TAK_MASTER_ROUTE;
-  const fallbackStations: Station[] = routeMasterList.map((masterSt, idx) => ({
-    code: masterSt.code,
-    name: masterSt.name,
-    lat: masterSt.lat,
-    lng: masterSt.lng,
-    scheduledDeparture: idx === 0 ? masterInfo?.dep || '08:35 PM' : idx === routeMasterList.length - 1 ? masterInfo?.arr || '10:40 PM' : formatTime(`2026-09-01T21:${String(10 + idx * 3).padStart(2, '0')}:00+05:30`),
-    scheduledArrival: idx === 0 ? masterInfo?.dep || '08:35 PM' : idx === routeMasterList.length - 1 ? masterInfo?.arr || '10:40 PM' : formatTime(`2026-09-01T21:${String(10 + idx * 3).padStart(2, '0')}:00+05:30`),
-    actualDeparture: idx === 0 ? masterInfo?.dep || '08:35 PM' : idx === routeMasterList.length - 1 ? masterInfo?.arr || '10:40 PM' : formatTime(`2026-09-01T21:${String(10 + idx * 3).padStart(2, '0')}:00+05:30`),
-    actualArrival: idx === 0 ? masterInfo?.dep || '08:35 PM' : idx === routeMasterList.length - 1 ? masterInfo?.arr || '10:40 PM' : formatTime(`2026-09-01T21:${String(10 + idx * 3).padStart(2, '0')}:00+05:30`),
-    delayMinutes: 0,
-    platform: masterSt.platform,
-    distanceFromSourceKm: masterSt.dist,
-    status: idx === routeMasterList.length - 1 ? 'current' : 'passed',
-    elevationMeters: 120,
-    weather: getStationWeather(masterSt.code, idx)
-  }));
+  const fallbackStations: Station[] = masterRouteList.map((masterSt, idx) => {
+    const minsOffset = Math.round(idx * 3.5);
+    const computedTime = addMinutesToTime(baseDepTime, minsOffset);
+    const displayStTime = idx === 0 ? masterInfo?.dep || '10:15 PM' : idx === masterRouteList.length - 1 ? masterInfo?.arr || '11:45 PM' : computedTime;
+
+    return {
+      code: masterSt.code,
+      name: masterSt.name,
+      lat: masterSt.lat,
+      lng: masterSt.lng,
+      scheduledDeparture: displayStTime,
+      scheduledArrival: displayStTime,
+      actualDeparture: displayStTime,
+      actualArrival: displayStTime,
+      delayMinutes: 0,
+      platform: masterSt.platform,
+      distanceFromSourceKm: masterSt.dist,
+      status: idx === masterRouteList.length - 1 ? 'current' : 'passed',
+      elevationMeters: 120,
+      weather: getStationWeather(masterSt.code, idx)
+    };
+  });
 
   const lastFallbackStn = fallbackStations[fallbackStations.length - 1];
 
   return {
     trainNumber: cleanedId,
     trainName: masterInfo?.name || `Howrah - Tarakeswar Local (EMU)`,
-    sourceStation: masterInfo?.source || 'Goghat (GOGH)',
-    destinationStation: masterInfo?.dest || 'Howrah Junction (HWH)',
+    sourceStation: masterInfo?.source || 'Howrah Junction (HWH)',
+    destinationStation: masterInfo?.dest || 'Tarakeswar (TAK)',
     currentStation: lastFallbackStn,
     nextStation: lastFallbackStn,
     lastUpdated: new Date().toISOString(),
@@ -552,9 +588,9 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
     delayMinutes: 0,
     speedKmh: 42.5,
     progressPercent: 100,
-    distanceCoveredKm: masterInfo ? 84 : 57,
+    distanceCoveredKm: masterRouteList[masterRouteList.length - 1]?.dist || 57,
     distanceRemainingKm: 0,
-    totalDistanceKm: masterInfo ? 84 : 57,
+    totalDistanceKm: masterRouteList[masterRouteList.length - 1]?.dist || 57,
     currentLat: lastFallbackStn.lat,
     currentLng: lastFallbackStn.lng,
     bearing: 125,
