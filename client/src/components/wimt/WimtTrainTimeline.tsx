@@ -8,6 +8,28 @@ interface WimtTrainTimelineProps {
   onRefresh: () => void;
 }
 
+function timeToMinutes(timeStr?: string): number {
+  if (!timeStr) return 0;
+  const str = String(timeStr).trim();
+  let h = 0, m = 0;
+  if (str.includes('PM') || str.includes('pm')) {
+    const parts = str.replace(/(AM|PM|am|pm)/gi, '').trim().split(':');
+    h = parseInt(parts[0], 10) || 0;
+    m = parseInt(parts[1], 10) || 0;
+    if (h < 12) h += 12;
+  } else if (str.includes('AM') || str.includes('am')) {
+    const parts = str.replace(/(AM|PM|am|pm)/gi, '').trim().split(':');
+    h = parseInt(parts[0], 10) || 0;
+    m = parseInt(parts[1], 10) || 0;
+    if (h === 12) h = 0;
+  } else {
+    const parts = str.split(':');
+    h = parseInt(parts[0], 10) || 0;
+    m = parseInt(parts[1], 10) || 0;
+  }
+  return h * 60 + m;
+}
+
 export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTrainTimelineProps) {
   // Station Wakeup Alarm State
   const [alarmStation, setAlarmStation] = useState<Station | null>(null);
@@ -58,12 +80,21 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
     return clean;
   };
 
-  const isCompletedRun = status.progressPercent >= 100 || status.distanceRemainingKm === 0;
+  // Determine if train run has completed based on arrival time & current time of day
+  const lastStn = status.stations[status.stations.length - 1];
+  const lastArrTime = lastStn?.actualArrival || lastStn?.scheduledArrival || '03:40 PM';
+
+  const now = new Date();
+  const currentMins = now.getHours() * 60 + now.getMinutes();
+  const arrMins = timeToMinutes(displayTime(lastArrTime));
+
+  const isCompletedRun = status.progressPercent >= 100 || status.distanceRemainingKm === 0 || (arrMins > 0 && currentMins > arrMins && (currentMins - arrMins) < 720);
 
   // Find index of current train position
   const currentIdx = status.stations.findIndex(
     s => s.code === status.currentStation?.code || s.name === status.currentStation?.name || s.status === 'current'
   );
+
   const activeCurrentIdx = isCompletedRun
     ? status.stations.length - 1
     : currentIdx >= 0
@@ -92,7 +123,7 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
 
   const handleOpenAlarmModal = (st: Station) => {
     setSelectedStationForAlarm(st);
-    setShowAlarmModal(false);
+    setShowAlarmModal(true);
   };
 
   const handleConfirmAlarm = () => {
@@ -142,13 +173,13 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
       }`}>
         <div className="flex items-center gap-2">
           {isCompletedRun ? (
-            <CheckCircle2 className="w-5 h-5 text-white" />
+            <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
           ) : (
-            <div className="w-3 h-3 rounded-full bg-white animate-ping"></div>
+            <div className="w-3 h-3 rounded-full bg-white animate-ping shrink-0"></div>
           )}
           <span>
             {isCompletedRun
-              ? 'Reached Destination (Completed in Last 24h)'
+              ? `Reached Destination (Completed at ${displayTime(lastArrTime)})`
               : status.delayMinutes === 0
               ? 'Running On Time'
               : `Delayed by ${status.delayMinutes} mins`}
@@ -157,7 +188,7 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
         <div className="text-xs font-normal">
           {isCompletedRun ? 'Arrived at:' : 'Current:'}{' '}
           <strong className="underline font-bold">
-            {isCompletedRun ? status.stations[status.stations.length - 1]?.name : status.currentStation?.name || 'En Route'}
+            {isCompletedRun ? lastStn?.name || status.destinationStation : status.currentStation?.name || 'En Route'}
           </strong>
         </div>
       </div>
