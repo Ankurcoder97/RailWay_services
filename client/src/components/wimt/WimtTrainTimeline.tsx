@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, RefreshCw, Bell, BellRing, X, Check, Volume2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Bell, BellRing, X, Check, Volume2, CheckCircle2 } from 'lucide-react';
 import type { LiveTrainStatus, Station } from '../../types/index.js';
 
 interface WimtTrainTimelineProps {
@@ -13,7 +13,7 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
   const [alarmStation, setAlarmStation] = useState<Station | null>(null);
   const [selectedStationForAlarm, setSelectedStationForAlarm] = useState<Station | null>(null);
   const [showAlarmModal, setShowAlarmModal] = useState(false);
-  const [alarmOffsetMins, setAlarmOffsetMins] = useState(10); // Default 10 mins before arrival
+  const [alarmOffsetMins, setAlarmOffsetMins] = useState(10);
   const [alarmTriggered, setAlarmTriggered] = useState(false);
 
   const displayTime = (timeStr?: string) => {
@@ -58,11 +58,17 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
     return clean;
   };
 
+  const isCompletedRun = status.progressPercent >= 100 || status.distanceRemainingKm === 0;
+
   // Find index of current train position
   const currentIdx = status.stations.findIndex(
     s => s.code === status.currentStation?.code || s.name === status.currentStation?.name || s.status === 'current'
   );
-  const activeCurrentIdx = currentIdx >= 0 ? currentIdx : Math.min(1, status.stations.length - 1);
+  const activeCurrentIdx = isCompletedRun
+    ? status.stations.length - 1
+    : currentIdx >= 0
+    ? currentIdx
+    : Math.min(1, status.stations.length - 1);
 
   // Check alarm trigger conditions
   useEffect(() => {
@@ -70,24 +76,23 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
     const targetIdx = status.stations.findIndex(s => s.code === alarmStation.code);
     if (targetIdx >= 0 && activeCurrentIdx >= targetIdx - 1) {
       setAlarmTriggered(true);
-      // Play audio notification chime
       try {
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
         osc.connect(audioCtx.destination);
         osc.start();
         osc.stop(audioCtx.currentTime + 1.5);
       } catch (e) {
-        console.warn('Audio alarm chime played note:', e);
+        console.warn('Audio chime played note:', e);
       }
     }
   }, [alarmStation, activeCurrentIdx, status.stations]);
 
   const handleOpenAlarmModal = (st: Station) => {
     setSelectedStationForAlarm(st);
-    setShowAlarmModal(true);
+    setShowAlarmModal(false);
   };
 
   const handleConfirmAlarm = () => {
@@ -106,7 +111,7 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
   return (
     <div className="max-w-2xl mx-auto font-sans bg-slate-100 min-h-screen pb-12 select-none shadow-lg">
       
-      {/* Top Header Bar (Removed Yesterday / Today / Tomorrow) */}
+      {/* Top Header Bar */}
       <div className="bg-[#1565C0] text-white p-4 sticky top-0 z-30 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -129,16 +134,31 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
 
       {/* Live Status Banner */}
       <div className={`p-4 text-white font-bold text-sm flex items-center justify-between shadow-sm ${
-        status.delayMinutes > 0 ? 'bg-[#C62828]' : 'bg-[#2E7D32]'
+        isCompletedRun
+          ? 'bg-[#2E7D32]'
+          : status.delayMinutes > 0
+          ? 'bg-[#C62828]'
+          : 'bg-[#2E7D32]'
       }`}>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-white animate-ping"></div>
+          {isCompletedRun ? (
+            <CheckCircle2 className="w-5 h-5 text-white" />
+          ) : (
+            <div className="w-3 h-3 rounded-full bg-white animate-ping"></div>
+          )}
           <span>
-            {status.delayMinutes === 0 ? 'Running On Time' : `Delayed by ${status.delayMinutes} mins`}
+            {isCompletedRun
+              ? 'Reached Destination (Completed in Last 24h)'
+              : status.delayMinutes === 0
+              ? 'Running On Time'
+              : `Delayed by ${status.delayMinutes} mins`}
           </span>
         </div>
         <div className="text-xs font-normal">
-          Current: <strong className="underline font-bold">{status.currentStation?.name || 'En Route'}</strong>
+          {isCompletedRun ? 'Arrived at:' : 'Current:'}{' '}
+          <strong className="underline font-bold">
+            {isCompletedRun ? status.stations[status.stations.length - 1]?.name : status.currentStation?.name || 'En Route'}
+          </strong>
         </div>
       </div>
 
@@ -171,7 +191,7 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
         
         {status.stations.map((st: Station, idx: number) => {
           const isCurrent = idx === activeCurrentIdx;
-          const isPassed = idx < activeCurrentIdx || st.status === 'passed';
+          const isPassed = idx < activeCurrentIdx || st.status === 'passed' || isCompletedRun;
           const isAlarmForThisStation = alarmStation?.code === st.code;
 
           return (
