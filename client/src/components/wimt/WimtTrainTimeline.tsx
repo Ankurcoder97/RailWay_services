@@ -11,6 +11,26 @@ interface WimtTrainTimelineProps {
 export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTrainTimelineProps) {
   const [dayTab, setDayTab] = useState<'today' | 'yesterday' | 'tomorrow'>('today');
 
+  const displayTime = (timeStr?: string) => {
+    if (!timeStr) return '--:--';
+    if (timeStr.includes(':') && (timeStr.includes('AM') || timeStr.includes('PM'))) return timeStr;
+    if (timeStr.includes('T')) {
+      try {
+        const d = new Date(timeStr);
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      } catch {
+        return timeStr;
+      }
+    }
+    return timeStr;
+  };
+
+  // Find index of current train position
+  const currentIdx = status.stations.findIndex(
+    s => s.code === status.currentStation?.code || s.name === status.currentStation?.name || s.status === 'current'
+  );
+  const activeCurrentIdx = currentIdx >= 0 ? currentIdx : Math.min(1, status.stations.length - 1);
+
   return (
     <div className="max-w-2xl mx-auto font-sans bg-slate-100 min-h-screen pb-12 select-none shadow-lg">
       
@@ -29,7 +49,7 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
 
           <div className="flex items-center gap-2">
             <button onClick={onRefresh} className="p-2 rounded hover:bg-white/10" title="Refresh Live Position">
-              <RefreshCw className="w-5 h-5" />
+              <RefreshCw className="w-5 h-5 animate-spin-hover" />
             </button>
           </div>
         </div>
@@ -68,7 +88,7 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
           </span>
         </div>
         <div className="text-xs font-normal">
-          Current: <strong className="underline">{status.currentStation.name}</strong>
+          Current: <strong className="underline">{status.currentStation?.name || 'En Route'}</strong>
         </div>
       </div>
 
@@ -76,11 +96,11 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
       <div className="bg-white border-b shadow-sm relative p-4 space-y-0">
         
         {status.stations.map((st: Station, idx: number) => {
-          const isCurrent = st.code === status.currentStation.code || st.status === 'current';
-          const isPassed = st.status === 'passed';
+          const isCurrent = idx === activeCurrentIdx;
+          const isPassed = idx < activeCurrentIdx || st.status === 'passed';
 
           return (
-            <div key={st.code} className="relative flex items-center py-3 group">
+            <div key={st.code + idx} className="relative flex items-center py-3 group">
               
               {/* Vertical Line */}
               {idx < status.stations.length - 1 && (
@@ -125,11 +145,11 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
                   <div className={`text-xs font-bold ${
                     st.delayMinutes > 0 ? 'text-rose-600' : 'text-[#2E7D32]'
                   }`}>
-                    {st.actualArrival || st.scheduledArrival || st.actualDeparture || st.scheduledDeparture || '--:--'}
+                    {displayTime(st.actualArrival || st.scheduledArrival || st.actualDeparture || st.scheduledDeparture)}
                   </div>
                   {st.scheduledArrival && st.actualArrival && st.scheduledArrival !== st.actualArrival && (
                     <div className="text-[10px] text-slate-400 line-through">
-                      {st.scheduledArrival}
+                      {displayTime(st.scheduledArrival)}
                     </div>
                   )}
                 </div>

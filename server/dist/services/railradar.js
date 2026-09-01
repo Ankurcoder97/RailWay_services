@@ -82,12 +82,14 @@ function formatTime(isoString) {
         return undefined;
     try {
         const d = new Date(isoString);
-        if (isNaN(d.getTime()))
-            return undefined;
-        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        if (isNaN(d.getTime())) {
+            // If already hh:mm format, return as is
+            return isoString;
+        }
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     }
     catch {
-        return undefined;
+        return isoString;
     }
 }
 async function searchTrains(query) {
@@ -155,8 +157,8 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
                 trainName: t.train?.name || `${t.train?.type || 'Local'} Train`,
                 source: `${t.from?.name || fromQuery} (${t.from?.code || fromCode})`,
                 destination: `${t.to?.name || toQuery} (${t.to?.code || toCode})`,
-                departureTime: t.from?.departure || '05:40 AM',
-                arrivalTime: t.to?.arrival || '07:00 AM',
+                departureTime: formatTime(t.from?.departure) || '05:40 AM',
+                arrivalTime: formatTime(t.to?.arrival) || '07:00 AM',
                 runsOn: t.train?.runDays || ['Daily']
             }));
         }
@@ -164,7 +166,6 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
     catch (err) {
         console.warn(`RailRadar trains between ${fromCode}->${toCode} call note:`, err.message);
     }
-    // 1. If searching Howrah (HWH) to Tarakeswar (TAK) / Goghat (GOGH) / Haripal (HPL) branch line:
     const isTarakeswarBranch = ['HWH', 'TAK', 'GOGH', 'HPL'].includes(fromCode) && ['HWH', 'TAK', 'GOGH', 'HPL'].includes(toCode);
     if (isTarakeswarBranch) {
         const tarakeswarLocalSchedule = [
@@ -180,26 +181,23 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
             { trainNumber: '37347', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:15 PM', arrivalTime: '11:45 PM', runsOn: ['Daily'] }
         ];
         if (apiTrains.length > 0) {
-            // Filter out non-local express trains
             const emuOnly = apiTrains.filter(t => t.trainName.toLowerCase().includes('local') || t.trainName.toLowerCase().includes('emu') || t.trainNumber.startsWith('3'));
             return emuOnly.length > 0 ? emuOnly : tarakeswarLocalSchedule;
         }
         return tarakeswarLocalSchedule;
     }
-    // 2. If searching Chennai (MAS) to Bengaluru (SBC):
     const isChennaiBengaluru = ['MAS', 'SBC', 'BNC'].includes(fromCode) && ['MAS', 'SBC', 'BNC'].includes(toCode);
     if (isChennaiBengaluru) {
         return [
-            { trainNumber: '12007', trainName: 'Mysuru Shatabdi Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '6:00 AM', arrivalTime: '10:55 AM', runsOn: ['Daily'] },
-            { trainNumber: '22625', trainName: 'KSR Bengaluru AC Double Decker Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '7:25 AM', arrivalTime: '1:10 PM', runsOn: ['Daily'] },
-            { trainNumber: '12639', trainName: 'Brindavan Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '7:50 AM', arrivalTime: '2:00 PM', runsOn: ['Daily'] },
-            { trainNumber: '12609', trainName: 'KSR Bengaluru SF Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '1:35 PM', arrivalTime: '8:05 PM', runsOn: ['Daily'] },
-            { trainNumber: '12296', trainName: 'Sanghamitra SF Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '1:55 PM', arrivalTime: '8:20 PM', runsOn: ['Daily'] },
-            { trainNumber: '12577', trainName: 'Bagmati Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '2:45 PM', arrivalTime: '8:40 PM', runsOn: ['Mon', 'Fri'] },
-            { trainNumber: '12607', trainName: 'Lalbagh Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '3:35 PM', arrivalTime: '9:35 PM', runsOn: ['Daily'] }
+            { trainNumber: '12007', trainName: 'Mysuru Shatabdi Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '06:00 AM', arrivalTime: '10:55 AM', runsOn: ['Daily'] },
+            { trainNumber: '22625', trainName: 'KSR Bengaluru AC Double Decker Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '07:25 AM', arrivalTime: '01:10 PM', runsOn: ['Daily'] },
+            { trainNumber: '12639', trainName: 'Brindavan Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '07:50 AM', arrivalTime: '02:00 PM', runsOn: ['Daily'] },
+            { trainNumber: '12609', trainName: 'KSR Bengaluru SF Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '01:35 PM', arrivalTime: '08:05 PM', runsOn: ['Daily'] },
+            { trainNumber: '12296', trainName: 'Sanghamitra SF Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '01:55 PM', arrivalTime: '08:20 PM', runsOn: ['Daily'] },
+            { trainNumber: '12577', trainName: 'Bagmati Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '02:45 PM', arrivalTime: '08:40 PM', runsOn: ['Mon', 'Fri'] },
+            { trainNumber: '12607', trainName: 'Lalbagh Express', source: 'Chennai Central (MAS)', destination: 'KSR Bengaluru (SBC)', departureTime: '03:35 PM', arrivalTime: '09:35 PM', runsOn: ['Daily'] }
         ];
     }
-    // General fallback
     const cleanFrom = fromQuery.trim() || 'Origin';
     const cleanTo = toQuery.trim() || 'Destination';
     if (apiTrains.length > 0)
@@ -240,7 +238,7 @@ async function getLiveTrainStatus(trainId) {
             }
             const rawRoute = Array.isArray(liveData.route) && liveData.route.length > 0 ? liveData.route : (detailsData?.route || []);
             const totalDist = trainMeta.distance || (rawRoute.length > 0 ? Math.round(rawRoute[rawRoute.length - 1].distance || 1000) : 1000);
-            const currentCode = liveData.currentLocation?.stationCode;
+            const currentCode = liveData.currentLocation?.stationCode || liveData.currentLocation?.station?.code;
             const stations = rawRoute.map((st, idx) => {
                 const code = st.stationCode || st.station?.code || `STN-${idx}`;
                 const name = st.stationName || st.station?.name || `Station ${code}`;
@@ -266,15 +264,23 @@ async function getLiveTrainStatus(trainId) {
                     elevationMeters: 120
                 };
             });
+            // Ensure at least 1 station has status 'current'
+            const hasCurrent = stations.some(s => s.status === 'current');
+            if (!hasCurrent && stations.length > 0) {
+                // Pick station matching currentLocation or middle station
+                const matchIdx = stations.findIndex(s => s.code === currentCode);
+                const targetIdx = matchIdx >= 0 ? matchIdx : Math.min(1, stations.length - 1);
+                stations[targetIdx].status = 'current';
+            }
             const currentIdx = stations.findIndex(s => s.status === 'current');
             const activeCurrentStation = currentIdx >= 0 ? stations[currentIdx] : {
-                code: liveData.currentLocation?.stationCode || 'LMK',
-                name: liveData.currentLocation?.stationName || 'Current Location',
+                code: liveData.currentLocation?.stationCode || 'HWH',
+                name: liveData.currentLocation?.stationName || 'Howrah Junction',
                 lat: trainMeta.source?.lat || 22.5828,
                 lng: trainMeta.source?.lng || 88.3428,
                 delayMinutes: liveData.delayMinutes || 0,
                 platform: '1',
-                distanceFromSourceKm: Math.round(liveData.currentLocation?.distanceFromOriginKm || 500),
+                distanceFromSourceKm: Math.round(liveData.currentLocation?.distanceFromOriginKm || 0),
                 status: 'current',
                 elevationMeters: 120
             };
@@ -285,7 +291,7 @@ async function getLiveTrainStatus(trainId) {
             const routeCoordinates = stations.map(s => [s.lng, s.lat]);
             return {
                 trainNumber: liveData.trainNumber || trainMeta.number || trainNum,
-                trainName: liveData.trainName || trainMeta.name || `Local/Express ${trainNum}`,
+                trainName: liveData.trainName || trainMeta.name || `Train ${trainNum}`,
                 sourceStation: trainMeta.source?.name ? `${trainMeta.source.name} (${trainMeta.source.code})` : stations[0]?.name || 'Origin',
                 destinationStation: trainMeta.destination?.name ? `${trainMeta.destination.name} (${trainMeta.destination.code})` : stations[stations.length - 1]?.name || 'Destination',
                 currentStation: activeCurrentStation,
@@ -311,21 +317,21 @@ async function getLiveTrainStatus(trainId) {
     }
     return {
         trainNumber: trainNum,
-        trainName: `Local EMU Train (${trainNum})`,
+        trainName: `Howrah - Tarakeswar Local (EMU)`,
         sourceStation: 'Howrah Junction (HWH)',
         destinationStation: 'Tarakeswar (TAK)',
         currentStation: {
-            code: 'TAK',
-            name: 'Tarakeswar',
-            lat: 22.882,
-            lng: 88.014,
-            scheduledArrival: '09:15',
-            scheduledDeparture: '09:15',
-            actualArrival: '09:15',
-            actualDeparture: '09:15',
+            code: 'HPL',
+            name: 'Haripal',
+            lat: 22.831,
+            lng: 88.119,
+            scheduledArrival: '08:45 AM',
+            scheduledDeparture: '08:45 AM',
+            actualArrival: '08:45 AM',
+            actualDeparture: '08:45 AM',
             delayMinutes: 0,
             platform: '1',
-            distanceFromSourceKm: 57,
+            distanceFromSourceKm: 45,
             status: 'current',
             elevationMeters: 120
         },
@@ -334,10 +340,10 @@ async function getLiveTrainStatus(trainId) {
             name: 'Tarakeswar',
             lat: 22.882,
             lng: 88.014,
-            scheduledArrival: '09:15',
-            scheduledDeparture: '09:15',
-            actualArrival: '09:15',
-            actualDeparture: '09:15',
+            scheduledArrival: '09:15 AM',
+            scheduledDeparture: '09:15 AM',
+            actualArrival: '09:15 AM',
+            actualDeparture: '09:15 AM',
             delayMinutes: 0,
             platform: '1',
             distanceFromSourceKm: 57,
@@ -348,17 +354,17 @@ async function getLiveTrainStatus(trainId) {
         isStale: false,
         delayMinutes: 0,
         speedKmh: 42.5,
-        progressPercent: 100,
-        distanceCoveredKm: 57,
-        distanceRemainingKm: 0,
+        progressPercent: 80,
+        distanceCoveredKm: 45,
+        distanceRemainingKm: 12,
         totalDistanceKm: 57,
-        currentLat: 22.882,
-        currentLng: 88.014,
+        currentLat: 22.831,
+        currentLng: 88.119,
         bearing: 125,
         stations: [
-            { code: 'HWH', name: 'Howrah Junction', lat: 22.582, lng: 88.342, scheduledDeparture: '07:45', actualDeparture: '07:45', delayMinutes: 0, platform: '14', distanceFromSourceKm: 0, status: 'passed', elevationMeters: 10 },
-            { code: 'HPL', name: 'Haripal', lat: 22.831, lng: 88.119, scheduledArrival: '08:45', actualArrival: '08:45', delayMinutes: 0, platform: '1', distanceFromSourceKm: 45, status: 'passed', elevationMeters: 15 },
-            { code: 'TAK', name: 'Tarakeswar', lat: 22.882, lng: 88.014, scheduledArrival: '09:15', actualArrival: '09:15', delayMinutes: 0, platform: '1', distanceFromSourceKm: 57, status: 'current', elevationMeters: 20 }
+            { code: 'HWH', name: 'Howrah Junction', lat: 22.582, lng: 88.342, scheduledDeparture: '07:45 AM', actualDeparture: '07:45 AM', delayMinutes: 0, platform: '14', distanceFromSourceKm: 0, status: 'passed', elevationMeters: 10 },
+            { code: 'HPL', name: 'Haripal', lat: 22.831, lng: 88.119, scheduledArrival: '08:45 AM', scheduledDeparture: '08:45 AM', actualArrival: '08:45 AM', actualDeparture: '08:45 AM', delayMinutes: 0, platform: '1', distanceFromSourceKm: 45, status: 'current', elevationMeters: 15 },
+            { code: 'TAK', name: 'Tarakeswar', lat: 22.882, lng: 88.014, scheduledArrival: '09:15 AM', scheduledDeparture: '09:15 AM', actualArrival: '09:15 AM', actualDeparture: '09:15 AM', delayMinutes: 0, platform: '1', distanceFromSourceKm: 57, status: 'upcoming', elevationMeters: 20 }
         ],
         routeCoordinates: [
             [88.342, 22.582],
