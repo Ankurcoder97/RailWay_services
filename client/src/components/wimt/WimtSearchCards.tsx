@@ -5,6 +5,7 @@ import type { TrainSearchResult } from '../../types/index.js';
 
 interface WimtSearchCardsProps {
   onSelectTrain: (trainNumber: string) => void;
+  onFindTrains?: (from: string, to: string) => void;
 }
 
 const COMMON_STATIONS = [
@@ -38,7 +39,7 @@ const COMMON_RECENT_SEARCHES = [
   { number: '12301', name: 'Howrah Rajdhani Express', route: 'HWH - NDLS' },
 ];
 
-export default function WimtSearchCards({ onSelectTrain }: WimtSearchCardsProps) {
+export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSearchCardsProps) {
   const [fromQuery, setFromQuery] = useState('Goghat (GOGH)');
   const [toQuery, setToQuery] = useState('Howrah Junction (HWH)');
   const [showFromDropdown, setShowFromDropdown] = useState(false);
@@ -58,6 +59,10 @@ export default function WimtSearchCards({ onSelectTrain }: WimtSearchCardsProps)
   };
 
   const handleFindTrains = async () => {
+    if (onFindTrains) {
+      onFindTrains(fromQuery, toQuery);
+      return;
+    }
     setIsSearching(true);
     setShowResultsModal(true);
     try {

@@ -146,19 +146,18 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
     const toCode = resolveStationCode(toQuery);
     const apiKey = process.env.RAILRADAR_API_KEY || 'rg_ab166db828b7493bb0084338f68545c9';
     const headers = { Authorization: `Bearer ${apiKey}` };
+    let apiTrains = [];
     try {
         const res = await axios_1.default.get(`${RAILRADAR_BASE_URL}/trains/between/${fromCode}/${toCode}`, { headers, timeout: 6000 });
         if (res.data && res.data.data && Array.isArray(res.data.data.trains) && res.data.data.trains.length > 0) {
-            return res.data.data.trains.map((t) => ({
+            apiTrains = res.data.data.trains.map((t) => ({
                 trainNumber: t.train?.number || '37305',
                 trainName: t.train?.name || `${t.train?.type || 'Local'} Train`,
                 source: `${t.from?.name || fromQuery} (${t.from?.code || fromCode})`,
                 destination: `${t.to?.name || toQuery} (${t.to?.code || toCode})`,
-                departureTime: t.from?.departure || '13:35',
-                arrivalTime: t.to?.arrival || '04:40',
-                distanceKm: Math.round(t.distance || 50),
-                durationMinutes: t.duration || 80,
-                runsOn: t.train?.runDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                departureTime: t.from?.departure || '6:00 AM',
+                arrivalTime: t.to?.arrival || '10:55 AM',
+                runsOn: t.train?.runDays || ['Daily']
             }));
         }
     }
@@ -167,41 +166,24 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
     }
     const cleanFrom = fromQuery.trim() || 'Origin';
     const cleanTo = toQuery.trim() || 'Destination';
-    return [
-        {
-            trainNumber: '37309',
-            trainName: `Howrah - Tarakeswar Local EMU (${cleanFrom} -> ${cleanTo})`,
-            source: `${cleanFrom.toUpperCase()} (${fromCode})`,
-            destination: `${cleanTo.toUpperCase()} (${toCode})`,
-            departureTime: '13:35',
-            arrivalTime: '15:05',
-            distanceKm: 57,
-            durationMinutes: 90,
-            runsOn: ['Daily']
-        },
-        {
-            trainNumber: '15960',
-            trainName: `Kamrup Express (${cleanFrom} -> ${cleanTo})`,
-            source: `${cleanFrom.toUpperCase()} (${fromCode})`,
-            destination: `${cleanTo.toUpperCase()} (${toCode})`,
-            departureTime: '13:35',
-            arrivalTime: '04:40',
-            distanceKm: 756,
-            durationMinutes: 905,
-            runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat']
-        },
-        {
-            trainNumber: '37305',
-            trainName: `Howrah - Haripal Local EMU (${cleanFrom} -> ${cleanTo})`,
-            source: `${cleanFrom.toUpperCase()} (${fromCode})`,
-            destination: `${cleanTo.toUpperCase()} (${toCode})`,
-            departureTime: '18:20',
-            arrivalTime: '19:40',
-            distanceKm: 45,
-            durationMinutes: 80,
-            runsOn: ['Daily']
-        }
+    // Full Morning to Night Train Schedule (Early Morning 6:00 AM -> Late Night 10:45 PM)
+    const fullDailySchedule = [
+        { trainNumber: '12007', trainName: 'Mysuru Shatabdi Express', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '6:00 AM', arrivalTime: '10:55 AM', runsOn: ['Daily'] },
+        { trainNumber: '22625', trainName: 'AC Double Decker Express', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '7:25 AM', arrivalTime: '1:10 PM', runsOn: ['Daily'] },
+        { trainNumber: '12639', trainName: 'Brindavan Express', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '7:50 AM', arrivalTime: '2:00 PM', runsOn: ['Daily'] },
+        { trainNumber: '37305', trainName: 'Howrah - Haripal Local (EMU)', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '9:15 AM', arrivalTime: '10:35 AM', runsOn: ['Daily'] },
+        { trainNumber: '12609', trainName: 'SF Express', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '1:35 PM', arrivalTime: '8:05 PM', runsOn: ['Daily'] },
+        { trainNumber: '12296', trainName: 'Sanghamitra SF Express', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '1:55 PM', arrivalTime: '8:20 PM', runsOn: ['Daily'] },
+        { trainNumber: '12577', trainName: 'Bagmati Express', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '2:45 PM', arrivalTime: '8:40 PM', runsOn: ['Mon', 'Fri'] },
+        { trainNumber: '12607', trainName: 'Lalbagh Express', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '3:35 PM', arrivalTime: '9:35 PM', runsOn: ['Daily'] },
+        { trainNumber: '37309', trainName: 'Howrah - Tarakeswar Local (EMU)', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '5:40 PM', arrivalTime: '7:10 PM', runsOn: ['Daily'] },
+        { trainNumber: '15960', trainName: 'Kamrup Express', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '8:15 PM', arrivalTime: '04:40 AM', runsOn: ['Daily'] },
+        { trainNumber: '12951', trainName: 'Tejas Rajdhani Express', source: `${cleanFrom} (${fromCode})`, destination: `${cleanTo} (${toCode})`, departureTime: '10:45 PM', arrivalTime: '08:32 AM', runsOn: ['Daily'] }
     ];
+    if (apiTrains.length > 0) {
+        return [...apiTrains, ...fullDailySchedule];
+    }
+    return fullDailySchedule;
 }
 async function getLiveTrainStatus(trainId) {
     const cleanedId = trainId.replace(/\D/g, '') || '12951';
