@@ -13,6 +13,11 @@ export interface Station {
   distanceFromSourceKm: number;
   status: 'passed' | 'current' | 'upcoming';
   elevationMeters?: number;
+  weather?: {
+    tempC: number;
+    condition: string;
+    icon: string;
+  };
 }
 
 export interface LiveTrainStatus {
@@ -34,7 +39,7 @@ export interface LiveTrainStatus {
   currentLng: number;
   bearing: number;
   stations: Station[];
-  routeCoordinates: [number, number][]; // [lng, lat]
+  routeCoordinates: [number, number][];
 }
 
 export interface TrainSearchResult {

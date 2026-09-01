@@ -253,16 +253,22 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
               {/* Station Information */}
               <div className="flex-1 ml-3 flex items-start justify-between">
                 <div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={`font-bold text-sm ${isCurrent ? 'text-blue-700 text-base' : 'text-slate-900'}`}>
                       {st.name}
                     </span>
                     <span className="text-xs font-semibold text-slate-400">({st.code})</span>
 
+                    {/* Live Weather Badge */}
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shadow-2xs">
+                      <span>{st.weather?.icon || '🌤️'}</span>
+                      <span>{st.weather?.tempC || 27}&deg;C</span>
+                    </span>
+
                     {/* Alarm Trigger Button for Station */}
                     <button
                       onClick={() => handleOpenAlarmModal(st)}
-                      className={`ml-1.5 p-1 rounded-full transition-all ${
+                      className={`p-1 rounded-full transition-all ${
                         isAlarmForThisStation
                           ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/50'
                           : 'text-slate-300 hover:text-amber-500 hover:bg-slate-100'

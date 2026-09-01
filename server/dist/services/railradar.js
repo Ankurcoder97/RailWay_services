@@ -77,6 +77,37 @@ function resolveStationCode(query) {
     }
     return clean.substring(0, 4).toUpperCase();
 }
+function getStationWeather(code, idx) {
+    const weatherPresets = {
+        HWH: { tempC: 28, condition: 'Clear', icon: '🌙' },
+        HJN: { tempC: 28, condition: 'Clear', icon: '🌙' },
+        SYAE: { tempC: 28, condition: 'Clear', icon: '🌙' },
+        LLH: { tempC: 28, condition: 'Clear', icon: '🌙' },
+        BEQ: { tempC: 27, condition: 'Clear', icon: '🌙' },
+        BLY: { tempC: 27, condition: 'Clear', icon: '🌙' },
+        BLYC: { tempC: 27, condition: 'Clear', icon: '🌙' },
+        UPA: { tempC: 27, condition: 'Partly Cloudy', icon: '⛅' },
+        HMZ: { tempC: 27, condition: 'Partly Cloudy', icon: '⛅' },
+        SIGR: { tempC: 26, condition: 'Partly Cloudy', icon: '⛅' },
+        HPL: { tempC: 26, condition: 'Light Rain', icon: '🌧️' },
+        TAK: { tempC: 26, condition: 'Light Rain', icon: '🌧️' },
+        GOGH: { tempC: 25, condition: 'Light Rain', icon: '🌧️' },
+        NDLS: { tempC: 32, condition: 'Sunny', icon: '☀️' },
+        MMCT: { tempC: 30, condition: 'Humid', icon: '🌤️' },
+        MAS: { tempC: 31, condition: 'Warm', icon: '☀️' },
+        SBC: { tempC: 24, condition: 'Pleasant', icon: '⛅' },
+    };
+    if (weatherPresets[code])
+        return weatherPresets[code];
+    const baseTemp = 27 + (idx % 4) - 2;
+    const icons = ['☀️', '🌤️', '⛅', '🌙'];
+    const conds = ['Clear', 'Partly Cloudy', 'Pleasant', 'Hazy'];
+    return {
+        tempC: baseTemp,
+        condition: conds[idx % conds.length],
+        icon: icons[idx % icons.length]
+    };
+}
 function formatTime(isoString) {
     if (!isoString)
         return undefined;
@@ -289,7 +320,8 @@ async function getLiveTrainStatus(trainId) {
                     platform: st.platform ? String(st.platform) : '1',
                     distanceFromSourceKm: Math.round(st.distance || 0),
                     status: isCurrentLoc ? 'current' : isPassed ? 'passed' : 'upcoming',
-                    elevationMeters: 120
+                    elevationMeters: 120,
+                    weather: getStationWeather(code, idx)
                 };
             });
             const hasCurrent = stations.some(s => s.status === 'current');
@@ -308,7 +340,8 @@ async function getLiveTrainStatus(trainId) {
                 platform: '1',
                 distanceFromSourceKm: Math.round(liveData.currentLocation?.distanceFromOriginKm || 0),
                 status: 'current',
-                elevationMeters: 120
+                elevationMeters: 120,
+                weather: getStationWeather(liveData.currentLocation?.stationCode || 'HWH', 0)
             };
             const activeNextStation = stations[Math.min(currentIdx >= 0 ? currentIdx + 1 : 1, stations.length - 1)] || activeCurrentStation;
             const distCovered = activeCurrentStation.distanceFromSourceKm;
@@ -359,7 +392,8 @@ async function getLiveTrainStatus(trainId) {
             platform: '1',
             distanceFromSourceKm: 34,
             status: 'current',
-            elevationMeters: 120
+            elevationMeters: 120,
+            weather: { tempC: 26, condition: 'Partly Cloudy', icon: '⛅' }
         },
         nextStation: {
             code: 'TAK',
@@ -374,7 +408,8 @@ async function getLiveTrainStatus(trainId) {
             platform: '1',
             distanceFromSourceKm: 57,
             status: 'upcoming',
-            elevationMeters: 120
+            elevationMeters: 120,
+            weather: { tempC: 26, condition: 'Light Rain', icon: '🌧️' }
         },
         lastUpdated: new Date().toISOString(),
         isStale: false,
@@ -388,14 +423,14 @@ async function getLiveTrainStatus(trainId) {
         currentLng: 88.229,
         bearing: 125,
         stations: [
-            { code: 'HWH', name: 'Howrah Junction', lat: 22.582, lng: 88.342, scheduledDeparture: '10:05 PM', actualDeparture: '10:10 PM', delayMinutes: 5, platform: '4', distanceFromSourceKm: 0, status: 'passed', elevationMeters: 10 },
-            { code: 'HJN', name: 'Howrah Jn Cabin', lat: 22.590, lng: 88.340, scheduledArrival: '10:06 PM', actualArrival: '10:11 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 1, status: 'passed', elevationMeters: 10 },
-            { code: 'SYAE', name: 'Liluah Sorting Yard Cabin', lat: 22.610, lng: 88.335, scheduledArrival: '10:10 PM', actualArrival: '10:15 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 3, status: 'passed', elevationMeters: 12 },
-            { code: 'LLH', name: 'Liluah', lat: 22.620, lng: 88.330, scheduledArrival: '10:19 PM', actualArrival: '10:24 PM', delayMinutes: 5, platform: '3', distanceFromSourceKm: 5, status: 'passed', elevationMeters: 12 },
-            { code: 'BEQ', name: 'Belur', lat: 22.630, lng: 88.325, scheduledArrival: '10:26 PM', actualArrival: '10:31 PM', delayMinutes: 5, platform: '3', distanceFromSourceKm: 6, status: 'passed', elevationMeters: 12 },
-            { code: 'BLY', name: 'Bally', lat: 22.650, lng: 88.320, scheduledArrival: '10:28 PM', actualArrival: '10:33 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 9, status: 'passed', elevationMeters: 12 },
-            { code: 'SIGR', name: 'Singur', lat: 22.812, lng: 88.229, scheduledArrival: '10:45 PM', actualArrival: '10:50 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 34, status: 'current', elevationMeters: 15 },
-            { code: 'TAK', name: 'Tarakeswar', lat: 22.882, lng: 88.014, scheduledArrival: '11:35 PM', actualArrival: '11:40 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 57, status: 'upcoming', elevationMeters: 20 }
+            { code: 'HWH', name: 'Howrah Junction', lat: 22.582, lng: 88.342, scheduledDeparture: '10:05 PM', actualDeparture: '10:10 PM', delayMinutes: 5, platform: '4', distanceFromSourceKm: 0, status: 'passed', elevationMeters: 10, weather: { tempC: 28, condition: 'Clear', icon: '🌙' } },
+            { code: 'HJN', name: 'Howrah Jn Cabin', lat: 22.590, lng: 88.340, scheduledArrival: '10:06 PM', actualArrival: '10:11 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 1, status: 'passed', elevationMeters: 10, weather: { tempC: 28, condition: 'Clear', icon: '🌙' } },
+            { code: 'SYAE', name: 'Liluah Sorting Yard Cabin', lat: 22.610, lng: 88.335, scheduledArrival: '10:10 PM', actualArrival: '10:15 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 3, status: 'passed', elevationMeters: 12, weather: { tempC: 28, condition: 'Clear', icon: '🌙' } },
+            { code: 'LLH', name: 'Liluah', lat: 22.620, lng: 88.330, scheduledArrival: '10:19 PM', actualArrival: '10:24 PM', delayMinutes: 5, platform: '3', distanceFromSourceKm: 5, status: 'passed', elevationMeters: 12, weather: { tempC: 28, condition: 'Clear', icon: '🌙' } },
+            { code: 'BEQ', name: 'Belur', lat: 22.630, lng: 88.325, scheduledArrival: '10:26 PM', actualArrival: '10:31 PM', delayMinutes: 5, platform: '3', distanceFromSourceKm: 6, status: 'passed', elevationMeters: 12, weather: { tempC: 27, condition: 'Clear', icon: '🌙' } },
+            { code: 'BLY', name: 'Bally', lat: 22.650, lng: 88.320, scheduledArrival: '10:28 PM', actualArrival: '10:33 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 9, status: 'passed', elevationMeters: 12, weather: { tempC: 27, condition: 'Clear', icon: '🌙' } },
+            { code: 'SIGR', name: 'Singur', lat: 22.812, lng: 88.229, scheduledArrival: '10:45 PM', actualArrival: '10:50 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 34, status: 'current', elevationMeters: 15, weather: { tempC: 26, condition: 'Partly Cloudy', icon: '⛅' } },
+            { code: 'TAK', name: 'Tarakeswar', lat: 22.882, lng: 88.014, scheduledArrival: '11:35 PM', actualArrival: '11:40 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 57, status: 'upcoming', elevationMeters: 20, weather: { tempC: 26, condition: 'Light Rain', icon: '🌧️' } }
         ],
         routeCoordinates: [
             [88.342, 22.582],
