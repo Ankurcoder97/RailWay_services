@@ -32,6 +32,41 @@ function timeToMinutes(timeStr?: string): number {
   return h * 60 + m;
 }
 
+function getTrainStatus(departureTime?: string, arrivalTime?: string): { label: string; isReached: boolean; isRunning: boolean; isUpcoming: boolean } {
+  if (!departureTime || !arrivalTime) {
+    return { label: 'Daily', isReached: false, isRunning: false, isUpcoming: true };
+  }
+
+  const depM = timeToMinutes(departureTime);
+  const arrM = timeToMinutes(arrivalTime);
+  const now = new Date();
+  const currentMins = now.getHours() * 60 + now.getMinutes();
+
+  const isOvernight = arrM < depM;
+
+  if (isOvernight) {
+    // Overnight: e.g. Dep 11:05 PM (1385m), Arr 12:35 AM (35m)
+    if (currentMins >= depM || currentMins <= arrM) {
+      return { label: 'Live Running', isReached: false, isRunning: true, isUpcoming: false };
+    } else if (currentMins > arrM && currentMins < arrM + 180) {
+      return { label: `Reached (${arrivalTime})`, isReached: true, isRunning: false, isUpcoming: false };
+    } else {
+      return { label: `Scheduled (${departureTime})`, isReached: false, isRunning: false, isUpcoming: true };
+    }
+  } else {
+    // Same-day: e.g. Dep 10:15 AM (615m), Arr 11:45 AM (705m)
+    if (currentMins >= depM && currentMins <= arrM) {
+      return { label: 'Live Running', isReached: false, isRunning: true, isUpcoming: false };
+    } else if (currentMins > arrM && currentMins < arrM + 180) {
+      return { label: `Reached (${arrivalTime})`, isReached: true, isRunning: false, isUpcoming: false };
+    } else if (currentMins < depM) {
+      return { label: `Scheduled (${departureTime})`, isReached: false, isRunning: false, isUpcoming: true };
+    } else {
+      return { label: `Reached (${arrivalTime})`, isReached: true, isRunning: false, isUpcoming: false };
+    }
+  }
+}
+
 export default function WimtTrainsList({ fromStation, toStation, trains, onSelectTrain, onBack }: WimtTrainsListProps) {
   const [selectedDate, setSelectedDate] = useState('All Dates');
   const [selectedQuota, setSelectedQuota] = useState('GN - Unreserved');
@@ -63,8 +98,8 @@ export default function WimtTrainsList({ fromStation, toStation, trains, onSelec
                 className="bg-white/15 hover:bg-white/20 text-white text-[11px] sm:text-xs font-semibold px-2 py-1 rounded border border-white/20 focus:outline-none appearance-none pr-5 sm:pr-6 cursor-pointer max-w-[110px] sm:max-w-none truncate"
               >
                 <option value="All Dates" className="text-slate-900">📅 All Dates</option>
-                <option value="Today" className="text-slate-900">📅 Today, 1 Sep</option>
-                <option value="Yesterday" className="text-slate-900">📅 Yesterday, 31 Aug</option>
+                <option value="Today" className="text-slate-900">📅 Today</option>
+                <option value="Tomorrow" className="text-slate-900">📅 Tomorrow</option>
               </select>
               <ChevronDown className="w-3 h-3 text-white absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -99,14 +134,14 @@ export default function WimtTrainsList({ fromStation, toStation, trains, onSelec
       {/* 2. Chronologically Sorted Train Schedule List (Morning to Night) */}
       <div className="divide-y divide-slate-200">
         {sortedTrains.map((t, idx) => {
-          const isRecentlyReached = idx < 3;
+          const trainStatus = getTrainStatus(t.departureTime, t.arrivalTime);
 
           return (
             <div
               key={t.trainNumber + idx}
               onClick={() => onSelectTrain(t.trainNumber)}
               className={`p-3 sm:p-4 hover:bg-blue-50/50 cursor-pointer transition-colors ${
-                isRecentlyReached ? 'bg-emerald-50/30' : 'bg-white'
+                trainStatus.isRunning ? 'bg-blue-50/60' : trainStatus.isReached ? 'bg-emerald-50/30' : 'bg-white'
               }`}
             >
               
@@ -125,14 +160,19 @@ export default function WimtTrainsList({ fromStation, toStation, trains, onSelec
                   </div>
                 </div>
 
-                {isRecentlyReached ? (
+                {trainStatus.isRunning ? (
+                  <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-extrabold text-blue-700 bg-blue-100 px-1.5 sm:px-2 py-0.5 rounded border border-blue-300">
+                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping shrink-0"></span>
+                    <span>Live Running</span>
+                  </div>
+                ) : trainStatus.isReached ? (
                   <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-extrabold text-[#2E7D32] bg-emerald-100 px-1.5 sm:px-2 py-0.5 rounded border border-emerald-300">
                     <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
-                    <span>Reached ({t.arrivalTime || 'Completed'})</span>
+                    <span>{trainStatus.label}</span>
                   </div>
                 ) : (
-                  <div className="text-[11px] sm:text-xs font-bold text-emerald-600">
-                    {Array.isArray(t.runsOn) ? t.runsOn.join(' ') : 'Runs Daily'}
+                  <div className="text-[11px] sm:text-xs font-bold text-slate-500">
+                    {trainStatus.label}
                   </div>
                 )}
 

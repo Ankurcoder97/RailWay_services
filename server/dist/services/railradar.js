@@ -140,7 +140,7 @@ function timeToMinutes(timeStr) {
     return h * 60 + m;
 }
 function addMinutesToTime(baseTime12h, minutesToAdd) {
-    const totalMins = timeToMinutes(baseTime12h) + minutesToAdd;
+    const totalMins = (timeToMinutes(baseTime12h) + minutesToAdd) % (24 * 60);
     let h = Math.floor(totalMins / 60) % 24;
     const m = totalMins % 60;
     const ampm = h >= 12 ? 'PM' : 'AM';
@@ -150,6 +150,70 @@ function addMinutesToTime(baseTime12h, minutesToAdd) {
     const formattedH = h < 10 ? `0${h}` : `${h}`;
     const formattedM = m < 10 ? `0${m}` : `${m}`;
     return `${formattedH}:${formattedM} ${ampm}`;
+}
+function getJourneyDurationMins(depTimeStr, arrTimeStr) {
+    const depM = timeToMinutes(depTimeStr);
+    const arrM = timeToMinutes(arrTimeStr);
+    if (arrM >= depM) {
+        return arrM - depM;
+    }
+    // Overnight train (crossing midnight)
+    return (arrM + 1440) - depM;
+}
+function getElapsedMinutesSinceDeparture(depTimeStr, arrTimeStr, now = new Date()) {
+    const depM = timeToMinutes(depTimeStr);
+    const arrM = timeToMinutes(arrTimeStr);
+    const totalDurationMins = arrM >= depM ? (arrM - depM) : ((arrM + 1440) - depM);
+    const currentMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+    const isOvernight = arrM < depM;
+    if (isOvernight) {
+        // Overnight: e.g. Dep 11:05 PM (1385m), Arr 12:35 AM (35m), Total 90m
+        if (currentMins >= depM) {
+            // e.g. 11:30 PM (1410m) -> elapsed = 1410 - 1385 = 25m
+            const elapsedMins = currentMins - depM;
+            return { isRunning: true, isCompleted: false, isUpcoming: false, elapsedMins, totalDurationMins };
+        }
+        else if (currentMins <= arrM) {
+            // e.g. 12:20 AM (20m) -> elapsed = 20 + 1440 - 1385 = 75m
+            const elapsedMins = (currentMins + 1440) - depM;
+            return { isRunning: true, isCompleted: false, isUpcoming: false, elapsedMins, totalDurationMins };
+        }
+        else if (currentMins > arrM && currentMins < arrM + 180) {
+            // Recently arrived earlier tonight/morning
+            return { isRunning: false, isCompleted: true, isUpcoming: false, elapsedMins: totalDurationMins, totalDurationMins };
+        }
+        else {
+            // Rest of day: train is scheduled to run tonight
+            return { isRunning: false, isCompleted: false, isUpcoming: true, elapsedMins: 0, totalDurationMins };
+        }
+    }
+    else {
+        // Same-day: e.g. Dep 10:15 AM (615m), Arr 11:45 AM (705m), Total 90m
+        if (currentMins >= depM && currentMins <= arrM) {
+            const elapsedMins = currentMins - depM;
+            return { isRunning: true, isCompleted: false, isUpcoming: false, elapsedMins, totalDurationMins };
+        }
+        else if (currentMins > arrM && currentMins < arrM + 180) {
+            // Completed earlier today
+            return { isRunning: false, isCompleted: true, isUpcoming: false, elapsedMins: totalDurationMins, totalDurationMins };
+        }
+        else if (currentMins < depM) {
+            // Upcoming later today
+            return { isRunning: false, isCompleted: false, isUpcoming: true, elapsedMins: 0, totalDurationMins };
+        }
+        else {
+            // Finished earlier today
+            return { isRunning: false, isCompleted: true, isUpcoming: false, elapsedMins: totalDurationMins, totalDurationMins };
+        }
+    }
+}
+function calculateBearing(lat1, lng1, lat2, lng2) {
+    const dLng = (lng2 - lng1) * (Math.PI / 180);
+    const y = Math.sin(dLng) * Math.cos(lat2 * (Math.PI / 180));
+    const x = Math.cos(lat1 * (Math.PI / 180)) * Math.sin(lat2 * (Math.PI / 180)) -
+        Math.sin(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.cos(dLng);
+    const brng = Math.atan2(y, x) * (180 / Math.PI);
+    return (brng + 360) % 360;
 }
 function getMasterRouteForTrain(sourceCode = 'HWH', destCode = 'TAK') {
     let fullRoute = [...HWH_TAK_MASTER_ROUTE];
@@ -283,20 +347,26 @@ async function searchTrains(query) {
         }
     }
     const popularList = [
-        { trainNumber: '37305', trainName: 'Howrah - Haripal Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Haripal (HPL)', runsOn: ['Daily'] },
-        { trainNumber: '37306', trainName: 'Haripal - Howrah Local (EMU)', source: 'Haripal (HPL)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'] },
-        { trainNumber: '37307', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
-        { trainNumber: '37308', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'] },
-        { trainNumber: '37309', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
-        { trainNumber: '37310', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'] },
-        { trainNumber: '37311', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Goghat (GOGH)', runsOn: ['Daily'] },
-        { trainNumber: '37312', trainName: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'] },
-        { trainNumber: '37319', trainName: 'Howrah - Tarakeswar Fast Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
-        { trainNumber: '37336', trainName: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'] },
-        { trainNumber: '37349', trainName: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
-        { trainNumber: '15960', trainName: 'Kamrup Express', source: 'Gosaigaonhat / Goghat (GOGH)', destination: 'Howrah Junction (HWH)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat'] },
-        { trainNumber: '12951', trainName: 'Mumbai Rajdhani Express', source: 'Mumbai Central (MMCT)', destination: 'New Delhi (NDLS)', runsOn: ['Daily'] },
-        { trainNumber: '22436', trainName: 'Vande Bharat Express', source: 'New Delhi (NDLS)', destination: 'Varanasi Jn (BSB)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat', 'Sun'] }
+        { trainNumber: '37305', trainName: 'Howrah - Haripal Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Haripal (HPL)', runsOn: ['Daily'], departureTime: '05:40 AM', arrivalTime: '07:00 AM' },
+        { trainNumber: '37306', trainName: 'Haripal - Howrah Local (EMU)', source: 'Haripal (HPL)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'], departureTime: '07:15 AM', arrivalTime: '08:35 AM' },
+        { trainNumber: '37307', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'], departureTime: '06:40 AM', arrivalTime: '08:12 AM' },
+        { trainNumber: '37308', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'], departureTime: '08:25 AM', arrivalTime: '09:55 AM' },
+        { trainNumber: '37309', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'], departureTime: '07:45 AM', arrivalTime: '09:15 AM' },
+        { trainNumber: '37310', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'], departureTime: '09:30 AM', arrivalTime: '11:00 AM' },
+        { trainNumber: '37311', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Goghat (GOGH)', runsOn: ['Daily'], departureTime: '08:35 AM', arrivalTime: '10:40 AM' },
+        { trainNumber: '37312', trainName: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'], departureTime: '10:55 AM', arrivalTime: '01:00 PM' },
+        { trainNumber: '37315', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'], departureTime: '10:15 AM', arrivalTime: '11:45 AM' },
+        { trainNumber: '37319', trainName: 'Howrah - Tarakeswar Fast Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'], departureTime: '01:25 PM', arrivalTime: '02:50 PM' },
+        { trainNumber: '37327', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'], departureTime: '04:30 PM', arrivalTime: '06:02 PM' },
+        { trainNumber: '37335', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Goghat (GOGH)', runsOn: ['Daily'], departureTime: '06:15 PM', arrivalTime: '08:20 PM' },
+        { trainNumber: '37336', trainName: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'], departureTime: '08:35 PM', arrivalTime: '10:40 PM' },
+        { trainNumber: '37343', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'], departureTime: '08:25 PM', arrivalTime: '09:55 PM' },
+        { trainNumber: '37349', trainName: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'], departureTime: '10:05 PM', arrivalTime: '11:35 PM' },
+        { trainNumber: '37347', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'], departureTime: '10:15 PM', arrivalTime: '11:45 PM' },
+        { trainNumber: '37351', trainName: 'Howrah - Tarakeswar Late Night Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'], departureTime: '11:05 PM', arrivalTime: '12:35 AM' },
+        { trainNumber: '15960', trainName: 'Kamrup Express', source: 'Gosaigaonhat / Goghat (GOGH)', destination: 'Howrah Junction (HWH)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat'], departureTime: '05:00 PM', arrivalTime: '06:30 AM' },
+        { trainNumber: '12951', trainName: 'Mumbai Rajdhani Express', source: 'Mumbai Central (MMCT)', destination: 'New Delhi (NDLS)', runsOn: ['Daily'], departureTime: '05:00 PM', arrivalTime: '08:32 AM' },
+        { trainNumber: '22436', trainName: 'Vande Bharat Express', source: 'New Delhi (NDLS)', destination: 'Varanasi Jn (BSB)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat', 'Sun'], departureTime: '06:00 AM', arrivalTime: '02:00 PM' }
     ];
     const matches = popularList.filter(t => t.trainNumber.includes(q) || t.trainName.toLowerCase().includes(q.toLowerCase()) || t.source.toLowerCase().includes(q.toLowerCase()) || t.destination.toLowerCase().includes(q.toLowerCase()));
     if (matches.length > 0)
@@ -307,7 +377,9 @@ async function searchTrains(query) {
             trainName: `Express/Local Train (${trainNum.toUpperCase()})`,
             source: 'New Delhi (NDLS)',
             destination: 'Mumbai Central (MMCT)',
-            runsOn: ['Daily']
+            runsOn: ['Daily'],
+            departureTime: '06:00 AM',
+            arrivalTime: '08:00 PM'
         }
     ];
 }
@@ -404,7 +476,7 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
     ];
 }
 async function getLiveTrainStatus(trainId) {
-    const cleanedId = trainId.replace(/\D/g, '') || '37349';
+    const cleanedId = trainId.replace(/\D/g, '') || '37351';
     const trainNum = cleanedId.padStart(5, '0');
     const apiKey = process.env.RAILRADAR_API_KEY || 'rg_ab166db828b7493bb0084338f68545c9';
     const headers = { Authorization: `Bearer ${apiKey}` };
@@ -412,13 +484,52 @@ async function getLiveTrainStatus(trainId) {
     const srcCode = masterInfo?.sourceCode || (masterInfo?.isUp ? 'TAK' : 'HWH');
     const destCode = masterInfo?.destCode || (masterInfo?.isUp ? 'HWH' : 'TAK');
     const masterRouteList = getMasterRouteForTrain(srcCode, destCode);
-    const baseDepTime = masterInfo?.dep || '10:15 PM';
+    const baseDepTime = masterInfo?.dep || '11:05 PM';
+    const baseArrTime = masterInfo?.arr || '12:35 AM';
     const now = new Date();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
+    const timingState = getElapsedMinutesSinceDeparture(baseDepTime, baseArrTime, now);
+    const totalDist = masterInfo ? (masterRouteList[masterRouteList.length - 1]?.dist || 57) : 57;
+    const totalDuration = timingState.totalDurationMins || 90;
+    // Build route station timings based on true physical distance proportions
+    const routeStationOffsets = masterRouteList.map((st, idx) => {
+        if (idx === 0)
+            return 0;
+        if (idx === masterRouteList.length - 1)
+            return totalDuration;
+        const distFrac = totalDist > 0 ? (st.dist / totalDist) : (idx / (masterRouteList.length - 1));
+        return Math.round(distFrac * totalDuration);
+    });
+    // Calculate active station index based on true elapsed minutes
+    let liveActiveIdx = 0;
+    let fractionToNext = 0;
+    if (timingState.isCompleted) {
+        liveActiveIdx = masterRouteList.length - 1;
+        fractionToNext = 1;
+    }
+    else if (timingState.isUpcoming) {
+        liveActiveIdx = 0;
+        fractionToNext = 0;
+    }
+    else {
+        // Train is running: find station segment
+        const elapsed = timingState.elapsedMins;
+        for (let i = 0; i < routeStationOffsets.length; i++) {
+            if (elapsed >= routeStationOffsets[i]) {
+                liveActiveIdx = i;
+            }
+            else {
+                break;
+            }
+        }
+        const currentOffset = routeStationOffsets[liveActiveIdx] || 0;
+        const nextOffset = routeStationOffsets[Math.min(liveActiveIdx + 1, routeStationOffsets.length - 1)] || currentOffset;
+        const span = Math.max(nextOffset - currentOffset, 1);
+        fractionToNext = Math.min(Math.max((elapsed - currentOffset) / span, 0), 1);
+    }
     try {
         const [liveRes, detailsRes] = await Promise.allSettled([
-            axios_1.default.get(`${RAILRADAR_BASE_URL}/trains/${trainNum}/live`, { headers, timeout: 6000 }),
-            axios_1.default.get(`${RAILRADAR_BASE_URL}/trains/${trainNum}`, { headers, timeout: 6000 })
+            axios_1.default.get(`${RAILRADAR_BASE_URL}/trains/${trainNum}/live`, { headers, timeout: 5000 }),
+            axios_1.default.get(`${RAILRADAR_BASE_URL}/trains/${trainNum}`, { headers, timeout: 5000 })
         ]);
         if (liveRes.status === 'fulfilled' && liveRes.value.data?.data) {
             const liveData = liveRes.value.data.data;
@@ -433,71 +544,41 @@ async function getLiveTrainStatus(trainId) {
                     }
                 });
             }
-            let rawRoute = Array.isArray(liveData.route) && liveData.route.length > 0 ? liveData.route : (detailsData?.route || []);
-            if (masterInfo && masterRouteList.length > 0) {
-                const rawCodeMap = new Map(rawRoute.map((r) => [r.stationCode || r.station?.code, r]));
-                rawRoute = masterRouteList.map((masterSt, idx) => {
-                    const existing = rawCodeMap.get(masterSt.code);
-                    if (existing)
-                        return existing;
-                    const minsOffset = Math.round(idx * 3.5);
-                    const computedTime = addMinutesToTime(baseDepTime, minsOffset);
-                    return {
-                        stationCode: masterSt.code,
-                        stationName: masterSt.name,
-                        platform: masterSt.platform,
-                        distance: masterSt.dist,
-                        scheduledArrival: idx === 0 ? masterInfo.dep : idx === masterRouteList.length - 1 ? masterInfo.arr : computedTime,
-                        scheduledDeparture: idx === 0 ? masterInfo.dep : idx === masterRouteList.length - 1 ? masterInfo.arr : computedTime,
-                        status: 'upcoming'
-                    };
-                });
-            }
-            const totalDist = masterInfo ? (masterRouteList[masterRouteList.length - 1]?.dist || 57) : trainMeta.distance || 57;
-            // Realtime active station calculation based on current time of day
-            let liveActiveIdx = 0;
-            masterRouteList.forEach((st, idx) => {
-                const minsOffset = Math.round(idx * 3.5);
-                const stTimeStr = idx === 0 ? masterInfo?.dep || baseDepTime : idx === masterRouteList.length - 1 ? masterInfo?.arr || '11:45 PM' : addMinutesToTime(baseDepTime, minsOffset);
-                const stMins = timeToMinutes(stTimeStr);
-                if (stMins <= currentMins) {
-                    liveActiveIdx = idx;
-                }
-            });
-            const stations = rawRoute.map((st, idx) => {
-                const code = st.stationCode || st.station?.code || `STN-${idx}`;
-                const name = st.stationName || st.station?.name || `Station ${code}`;
-                const coords = coordsMap.get(code) || {
-                    lat: (trainMeta.source?.lat || 22.5828) + (idx * 0.02),
-                    lng: (trainMeta.source?.lng || 88.3428) - (idx * 0.02)
-                };
+            const stations = masterRouteList.map((masterSt, idx) => {
+                const offsetM = routeStationOffsets[idx];
+                const schedTime = idx === 0 ? baseDepTime : idx === masterRouteList.length - 1 ? baseArrTime : addMinutesToTime(baseDepTime, offsetM);
+                const coords = coordsMap.get(masterSt.code) || { lat: masterSt.lat, lng: masterSt.lng };
                 const isCurrentLoc = idx === liveActiveIdx;
-                const isPassed = idx < liveActiveIdx;
-                const minsOffset = Math.round(idx * 3.5);
-                const computedTime = addMinutesToTime(baseDepTime, minsOffset);
+                const isPassedLoc = idx < liveActiveIdx;
                 return {
-                    code,
-                    name,
+                    code: masterSt.code,
+                    name: masterSt.name,
                     lat: coords.lat,
                     lng: coords.lng,
-                    scheduledArrival: formatTime(st.scheduledArrival || (idx === rawRoute.length - 1 ? masterInfo?.arr : computedTime)),
-                    scheduledDeparture: formatTime(st.scheduledDeparture || (idx === 0 ? masterInfo?.dep : computedTime)),
-                    actualArrival: formatTime(st.actualArrival || st.scheduledArrival || (idx === rawRoute.length - 1 ? masterInfo?.arr : computedTime)),
-                    actualDeparture: formatTime(st.actualDeparture || st.scheduledDeparture || (idx === 0 ? masterInfo?.dep : computedTime)),
-                    delayMinutes: st.delayMinutes || st.delayDeparture || st.delayArrival || liveData.delayMinutes || 0,
-                    platform: st.platform ? String(st.platform) : '1',
-                    distanceFromSourceKm: Math.round(st.distance || 0),
-                    status: isCurrentLoc ? 'current' : isPassed ? 'passed' : 'upcoming',
+                    scheduledArrival: schedTime,
+                    scheduledDeparture: schedTime,
+                    actualArrival: schedTime,
+                    actualDeparture: schedTime,
+                    delayMinutes: 0,
+                    platform: masterSt.platform,
+                    distanceFromSourceKm: masterSt.dist,
+                    status: isCurrentLoc ? 'current' : isPassedLoc ? 'passed' : 'upcoming',
                     elevationMeters: 120,
-                    weather: getStationWeather(code, idx)
+                    weather: getStationWeather(masterSt.code, idx)
                 };
             });
             const activeCurrentStation = stations[liveActiveIdx] || stations[0];
             const activeNextStation = stations[Math.min(liveActiveIdx + 1, stations.length - 1)] || activeCurrentStation;
-            const distCovered = activeCurrentStation.distanceFromSourceKm;
+            // Realtime interpolation between current and next station
+            const currDist = activeCurrentStation.distanceFromSourceKm;
+            const nextDist = activeNextStation.distanceFromSourceKm;
+            const distCovered = Math.round(currDist + (nextDist - currDist) * fractionToNext);
             const distRemaining = Math.max(totalDist - distCovered, 0);
-            const progressPercent = totalDist > 0 ? Math.min(Math.round((distCovered / totalDist) * 100), 100) : 50;
-            const routeCoordinates = stations.map(s => [s.lng, s.lat]);
+            const progressPercent = totalDist > 0 ? Math.min(Math.round((distCovered / totalDist) * 100), 100) : 0;
+            const interpLat = activeCurrentStation.lat + (activeNextStation.lat - activeCurrentStation.lat) * fractionToNext;
+            const interpLng = activeCurrentStation.lng + (activeNextStation.lng - activeCurrentStation.lng) * fractionToNext;
+            const bearing = calculateBearing(activeCurrentStation.lat, activeCurrentStation.lng, activeNextStation.lat, activeNextStation.lng) || 125;
+            const speedKmh = timingState.isRunning ? (fractionToNext > 0.1 && fractionToNext < 0.9 ? 52 : 28) : 0;
             return {
                 trainNumber: cleanedId,
                 trainName: masterInfo?.name || liveData.trainName || trainMeta.name || `Train ${cleanedId}`,
@@ -505,62 +586,59 @@ async function getLiveTrainStatus(trainId) {
                 destinationStation: masterInfo?.dest || (trainMeta.destination?.name ? `${trainMeta.destination.name} (${trainMeta.destination.code})` : stations[stations.length - 1]?.name || 'Destination'),
                 currentStation: activeCurrentStation,
                 nextStation: activeNextStation,
-                lastUpdated: liveData.lastUpdatedAt || new Date().toISOString(),
-                isStale: Boolean(liveData.isStale),
-                delayMinutes: liveData.delayMinutes || activeCurrentStation.delayMinutes || 0,
-                speedKmh: trainMeta.avgSpeed || trainMeta.maxSpeed || 45,
+                lastUpdated: new Date().toISOString(),
+                isStale: false,
+                delayMinutes: 0,
+                speedKmh,
                 progressPercent,
                 distanceCoveredKm: distCovered,
                 distanceRemainingKm: distRemaining,
                 totalDistanceKm: totalDist,
-                currentLat: activeCurrentStation.lat,
-                currentLng: activeCurrentStation.lng,
-                bearing: 125,
+                currentLat: interpLat,
+                currentLng: interpLng,
+                bearing,
                 stations,
-                routeCoordinates
+                routeCoordinates: stations.map(s => [s.lng, s.lat])
             };
         }
     }
     catch (err) {
         console.warn(`RailRadar API call note for ${trainNum}:`, err.message);
     }
-    // Fallback with real-time station positioning based on current time of day
-    let activeIdx = 0;
-    masterRouteList.forEach((st, idx) => {
-        const minsOffset = Math.round(idx * 3.5);
-        const stTimeStr = idx === 0 ? masterInfo?.dep || baseDepTime : idx === masterRouteList.length - 1 ? masterInfo?.arr || '11:45 PM' : addMinutesToTime(baseDepTime, minsOffset);
-        const stMins = timeToMinutes(stTimeStr);
-        if (stMins <= currentMins) {
-            activeIdx = idx;
-        }
-    });
+    // Real-time calculated status with precise station positioning
     const fallbackStations = masterRouteList.map((masterSt, idx) => {
-        const minsOffset = Math.round(idx * 3.5);
-        const computedTime = addMinutesToTime(baseDepTime, minsOffset);
-        const displayStTime = idx === 0 ? masterInfo?.dep || '10:15 PM' : idx === masterRouteList.length - 1 ? masterInfo?.arr || '11:45 PM' : computedTime;
+        const offsetM = routeStationOffsets[idx];
+        const schedTime = idx === 0 ? baseDepTime : idx === masterRouteList.length - 1 ? baseArrTime : addMinutesToTime(baseDepTime, offsetM);
+        const isCurrentLoc = idx === liveActiveIdx;
+        const isPassedLoc = idx < liveActiveIdx;
         return {
             code: masterSt.code,
             name: masterSt.name,
             lat: masterSt.lat,
             lng: masterSt.lng,
-            scheduledDeparture: displayStTime,
-            scheduledArrival: displayStTime,
-            actualDeparture: displayStTime,
-            actualArrival: displayStTime,
+            scheduledDeparture: schedTime,
+            scheduledArrival: schedTime,
+            actualDeparture: schedTime,
+            actualArrival: schedTime,
             delayMinutes: 0,
             platform: masterSt.platform,
             distanceFromSourceKm: masterSt.dist,
-            status: idx === activeIdx ? 'current' : idx < activeIdx ? 'passed' : 'upcoming',
+            status: isCurrentLoc ? 'current' : isPassedLoc ? 'passed' : 'upcoming',
             elevationMeters: 120,
             weather: getStationWeather(masterSt.code, idx)
         };
     });
-    const activeStn = fallbackStations[activeIdx] || fallbackStations[0];
-    const nextStn = fallbackStations[Math.min(activeIdx + 1, fallbackStations.length - 1)] || activeStn;
-    const totalDist = masterRouteList[masterRouteList.length - 1]?.dist || 57;
-    const distCovered = activeStn.distanceFromSourceKm;
+    const activeStn = fallbackStations[liveActiveIdx] || fallbackStations[0];
+    const nextStn = fallbackStations[Math.min(liveActiveIdx + 1, fallbackStations.length - 1)] || activeStn;
+    const currDist = activeStn.distanceFromSourceKm;
+    const nextDist = nextStn.distanceFromSourceKm;
+    const distCovered = Math.round(currDist + (nextDist - currDist) * fractionToNext);
     const distRemaining = Math.max(totalDist - distCovered, 0);
-    const progressPercent = totalDist > 0 ? Math.min(Math.round((distCovered / totalDist) * 100), 100) : 50;
+    const progressPercent = totalDist > 0 ? Math.min(Math.round((distCovered / totalDist) * 100), 100) : 0;
+    const interpLat = activeStn.lat + (nextStn.lat - activeStn.lat) * fractionToNext;
+    const interpLng = activeStn.lng + (nextStn.lng - activeStn.lng) * fractionToNext;
+    const bearing = calculateBearing(activeStn.lat, activeStn.lng, nextStn.lat, nextStn.lng) || 125;
+    const speedKmh = timingState.isRunning ? (fractionToNext > 0.1 && fractionToNext < 0.9 ? 48 : 25) : 0;
     return {
         trainNumber: cleanedId,
         trainName: masterInfo?.name || `Howrah - Tarakeswar Local (EMU)`,
@@ -571,14 +649,14 @@ async function getLiveTrainStatus(trainId) {
         lastUpdated: new Date().toISOString(),
         isStale: false,
         delayMinutes: 0,
-        speedKmh: 42.5,
+        speedKmh,
         progressPercent,
         distanceCoveredKm: distCovered,
         distanceRemainingKm: distRemaining,
         totalDistanceKm: totalDist,
-        currentLat: activeStn.lat,
-        currentLng: activeStn.lng,
-        bearing: 125,
+        currentLat: interpLat,
+        currentLng: interpLng,
+        bearing,
         stations: fallbackStations,
         routeCoordinates: fallbackStations.map(s => [s.lng, s.lat])
     };

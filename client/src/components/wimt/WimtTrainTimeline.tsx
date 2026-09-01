@@ -30,10 +30,10 @@ function timeToMinutes(timeStr?: string): number {
   return h * 60 + m;
 }
 
-function isTrainRunCompleted(status: LiveTrainStatus): boolean {
+function getTrainRunState(status: LiveTrainStatus): { isCompleted: boolean; isUpcoming: boolean; isRunning: boolean } {
   const lastStn = status.stations[status.stations.length - 1];
   const firstStn = status.stations[0];
-  if (!lastStn || !firstStn) return false;
+  if (!lastStn || !firstStn) return { isCompleted: false, isUpcoming: false, isRunning: true };
 
   const lastTimeStr = lastStn.actualArrival || lastStn.scheduledArrival;
   const firstTimeStr = firstStn.actualDeparture || firstStn.scheduledDeparture;
@@ -47,19 +47,26 @@ function isTrainRunCompleted(status: LiveTrainStatus): boolean {
   const isOvernight = lastTimeMins < firstTimeMins;
 
   if (isOvernight) {
-    // Overnight train: e.g. Dep 11:05 PM (1385m), Arr 12:35 AM (95m)
-    if (currentMins >= lastTimeMins && currentMins < firstTimeMins) {
-      return true;
+    // Overnight train: e.g. Dep 11:05 PM (1385m), Arr 12:35 AM (35m)
+    if (currentMins >= firstTimeMins || currentMins <= lastTimeMins) {
+      return { isCompleted: false, isUpcoming: false, isRunning: true };
+    } else if (currentMins > lastTimeMins && currentMins < lastTimeMins + 180) {
+      return { isCompleted: true, isUpcoming: false, isRunning: false };
+    } else {
+      return { isCompleted: false, isUpcoming: true, isRunning: false };
     }
-    return false;
+  } else {
+    // Same-day train: e.g. Dep 10:15 AM (615m), Arr 11:45 AM (705m)
+    if (currentMins >= firstTimeMins && currentMins <= lastTimeMins) {
+      return { isCompleted: false, isUpcoming: false, isRunning: true };
+    } else if (currentMins > lastTimeMins && currentMins < lastTimeMins + 180) {
+      return { isCompleted: true, isUpcoming: false, isRunning: false };
+    } else if (currentMins < firstTimeMins) {
+      return { isCompleted: false, isUpcoming: true, isRunning: false };
+    } else {
+      return { isCompleted: true, isUpcoming: false, isRunning: false };
+    }
   }
-
-  // Same-day train: e.g. Dep 08:25 PM (1225m), Arr 09:55 PM (1195m)
-  if (currentMins >= lastTimeMins && currentMins > firstTimeMins) {
-    return true;
-  }
-
-  return false;
 }
 
 export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTrainTimelineProps) {
@@ -112,18 +119,21 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
     return clean;
   };
 
+  const firstStn = status.stations[0];
   const lastStn = status.stations[status.stations.length - 1];
   const lastArrTime = lastStn?.actualArrival || lastStn?.scheduledArrival || '12:35 AM';
 
-  const isCompletedRun = isTrainRunCompleted(status);
+  const runState = getTrainRunState(status);
 
   // Find index of current train position
   const currentIdx = status.stations.findIndex(
-    s => s.code === status.currentStation?.code || s.name === status.currentStation?.name || s.status === 'current'
+    s => s.status === 'current' || s.code === status.currentStation?.code || s.name === status.currentStation?.name
   );
 
-  const activeCurrentIdx = isCompletedRun
+  const activeCurrentIdx = runState.isCompleted
     ? status.stations.length - 1
+    : runState.isUpcoming
+    ? 0
     : currentIdx >= 0
     ? currentIdx
     : 0;
@@ -192,30 +202,34 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
 
       {/* Live Status Banner */}
       <div className={`p-4 text-white font-bold text-sm flex items-center justify-between shadow-sm ${
-        isCompletedRun
+        runState.isCompleted
           ? 'bg-[#2E7D32]'
+          : runState.isUpcoming
+          ? 'bg-[#1565C0]'
           : status.delayMinutes > 0
           ? 'bg-[#C62828]'
           : 'bg-[#2E7D32]'
       }`}>
         <div className="flex items-center gap-2">
-          {isCompletedRun ? (
+          {runState.isCompleted ? (
             <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
           ) : (
             <div className="w-3 h-3 rounded-full bg-white animate-ping shrink-0"></div>
           )}
           <span>
-            {isCompletedRun
+            {runState.isCompleted
               ? `Reached Destination (Completed at ${displayTime(lastArrTime)})`
+              : runState.isUpcoming
+              ? `Scheduled (Departs at ${displayTime(firstStn?.scheduledDeparture || '11:05 PM')})`
               : status.delayMinutes === 0
-              ? 'Running On Time'
-              : `Delayed by ${status.delayMinutes} mins`}
+              ? 'Live Running • On Time'
+              : `Live Running • Delayed by ${status.delayMinutes} mins`}
           </span>
         </div>
         <div className="text-xs font-normal">
-          {isCompletedRun ? 'Arrived at:' : 'Current:'}{' '}
+          {runState.isCompleted ? 'Arrived at:' : runState.isUpcoming ? 'Origin:' : 'Current:'}{' '}
           <strong className="underline font-bold">
-            {isCompletedRun ? lastStn?.name || status.destinationStation : status.currentStation?.name || 'En Route'}
+            {runState.isCompleted ? lastStn?.name || status.destinationStation : status.stations[activeCurrentIdx]?.name || status.currentStation?.name || 'En Route'}
           </strong>
         </div>
       </div>
@@ -249,7 +263,7 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
         
         {status.stations.map((st: Station, idx: number) => {
           const isCurrent = idx === activeCurrentIdx;
-          const isPassed = idx < activeCurrentIdx || st.status === 'passed' || isCompletedRun;
+          const isPassed = idx < activeCurrentIdx;
           const isAlarmForThisStation = alarmStation?.code === st.code;
 
           return (
