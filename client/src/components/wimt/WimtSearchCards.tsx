@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Search, ArrowUpDown, X, MapPin } from 'lucide-react';
 import { fetchTrainsBetween } from '../../api/client.js';
+import { useTrainStore } from '../../store/useTrainStore.js';
 import type { TrainSearchResult } from '../../types/index.js';
 
 interface WimtSearchCardsProps {
@@ -32,41 +33,48 @@ const COMMON_RECENT_SEARCHES = [
   { number: '12951', name: 'Mumbai Central - New Delhi Tejas Rajdhani', route: 'MMCT - NDLS' },
   { number: '37305', name: 'Howrah - Haripal Local (EMU)', route: 'HWH - HPL' },
   { number: '37309', name: 'Howrah - Tarakeswar Local (EMU)', route: 'HWH - TAK' },
+  { number: '37349', name: 'Howrah - Tarakeswar Night Local (EMU)', route: 'HWH - TAK' },
   { number: '15960', name: 'Kamrup Express', route: 'GOGH - HWH' },
   { number: '22436', name: 'Vande Bharat Express', route: 'NDLS - BSB' },
   { number: '12002', name: 'Bhopal Shatabdi Express', route: 'NDLS - RKMP' },
   { number: '12626', name: 'Kerala Express', route: 'NDLS - TVC' },
-  { number: '12301', name: 'Howrah Rajdhani Express', route: 'HWH - NDLS' },
 ];
 
 export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSearchCardsProps) {
-  const [fromQuery, setFromQuery] = useState('Goghat (GOGH)');
-  const [toQuery, setToQuery] = useState('Howrah Junction (HWH)');
+  const {
+    fromStationQuery,
+    setFromStationQuery,
+    toStationQuery,
+    setToStationQuery,
+    spotTrainQuery,
+    setSpotTrainQuery,
+    liveStationQuery,
+    setLiveStationQuery,
+    addRecentSearch
+  } = useTrainStore();
+
   const [showFromDropdown, setShowFromDropdown] = useState(false);
   const [showToDropdown, setShowToDropdown] = useState(false);
-
-  const [spotTrainQuery, setSpotTrainQuery] = useState('12951 Tejas Rajdhani Express');
-  const [liveStationQuery, setLiveStationQuery] = useState('Howrah Junction (HWH)');
 
   const [routeResults, setRouteResults] = useState<TrainSearchResult[]>([]);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
   const handleSwap = () => {
-    const temp = fromQuery;
-    setFromQuery(toQuery);
-    setToQuery(temp);
+    const temp = fromStationQuery;
+    setFromStationQuery(toStationQuery);
+    setToStationQuery(temp);
   };
 
   const handleFindTrains = async () => {
     if (onFindTrains) {
-      onFindTrains(fromQuery, toQuery);
+      onFindTrains(fromStationQuery, toStationQuery);
       return;
     }
     setIsSearching(true);
     setShowResultsModal(true);
     try {
-      const results = await fetchTrainsBetween(fromQuery, toQuery);
+      const results = await fetchTrainsBetween(fromStationQuery, toStationQuery);
       setRouteResults(results);
     } catch (err) {
       console.error(err);
@@ -78,6 +86,7 @@ export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSea
   const handleSpotTrainSearch = async () => {
     const match = spotTrainQuery.match(/\d{5}/);
     const trainNum = match ? match[0] : spotTrainQuery.trim() || '12951';
+    addRecentSearch(trainNum);
     onSelectTrain(trainNum);
   };
 
@@ -88,11 +97,11 @@ export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSea
   };
 
   const filteredFromStations = COMMON_STATIONS.filter(
-    s => s.name.toLowerCase().includes(fromQuery.toLowerCase()) || s.code.toLowerCase().includes(fromQuery.toLowerCase())
+    s => s.name.toLowerCase().includes(fromStationQuery.toLowerCase()) || s.code.toLowerCase().includes(fromStationQuery.toLowerCase())
   );
 
   const filteredToStations = COMMON_STATIONS.filter(
-    s => s.name.toLowerCase().includes(toQuery.toLowerCase()) || s.code.toLowerCase().includes(toQuery.toLowerCase())
+    s => s.name.toLowerCase().includes(toStationQuery.toLowerCase()) || s.code.toLowerCase().includes(toStationQuery.toLowerCase())
   );
 
   return (
@@ -113,21 +122,21 @@ export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSea
             <div className="relative flex-1">
               <div className="flex items-center gap-2 bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 focus-within:border-blue-600">
                 <span className="px-1.5 py-0.5 bg-blue-600 text-white font-bold text-[11px] rounded uppercase shrink-0">
-                  {extractCode(fromQuery)}
+                  {extractCode(fromStationQuery)}
                 </span>
                 <input
                   type="text"
-                  value={fromQuery}
+                  value={fromStationQuery}
                   onChange={(e) => {
-                    setFromQuery(e.target.value);
+                    setFromStationQuery(e.target.value);
                     setShowFromDropdown(true);
                   }}
                   onFocus={() => setShowFromDropdown(true)}
                   placeholder="From Station"
                   className="w-full bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
                 />
-                {fromQuery && (
-                  <button onClick={() => setFromQuery('')} className="text-slate-400 hover:text-slate-600">
+                {fromStationQuery && (
+                  <button onClick={() => setFromStationQuery('')} className="text-slate-400 hover:text-slate-600">
                     <X className="w-4 h-4" />
                   </button>
                 )}
@@ -140,7 +149,7 @@ export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSea
                     <div
                       key={st.code}
                       onClick={() => {
-                        setFromQuery(`${st.name} (${st.code})`);
+                        setFromStationQuery(`${st.name} (${st.code})`);
                         setShowFromDropdown(false);
                       }}
                       className="px-3 py-2 text-xs text-slate-800 hover:bg-blue-50 cursor-pointer flex justify-between items-center border-b border-slate-100"
@@ -175,21 +184,21 @@ export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSea
             <div className="relative flex-1">
               <div className="flex items-center gap-2 bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 focus-within:border-blue-600">
                 <span className="px-1.5 py-0.5 bg-blue-600 text-white font-bold text-[11px] rounded uppercase shrink-0">
-                  {extractCode(toQuery)}
+                  {extractCode(toStationQuery)}
                 </span>
                 <input
                   type="text"
-                  value={toQuery}
+                  value={toStationQuery}
                   onChange={(e) => {
-                    setToQuery(e.target.value);
+                    setToStationQuery(e.target.value);
                     setShowToDropdown(true);
                   }}
                   onFocus={() => setShowToDropdown(true)}
                   placeholder="To Station"
                   className="w-full bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
                 />
-                {toQuery && (
-                  <button onClick={() => setToQuery('')} className="text-slate-400 hover:text-slate-600">
+                {toStationQuery && (
+                  <button onClick={() => setToStationQuery('')} className="text-slate-400 hover:text-slate-600">
                     <X className="w-4 h-4" />
                   </button>
                 )}
@@ -202,7 +211,7 @@ export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSea
                     <div
                       key={st.code}
                       onClick={() => {
-                        setToQuery(`${st.name} (${st.code})`);
+                        setToStationQuery(`${st.name} (${st.code})`);
                         setShowToDropdown(false);
                       }}
                       className="px-3 py-2 text-xs text-slate-800 hover:bg-blue-50 cursor-pointer flex justify-between items-center border-b border-slate-100"
@@ -306,7 +315,10 @@ export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSea
           {COMMON_RECENT_SEARCHES.map((item) => (
             <div
               key={item.number}
-              onClick={() => onSelectTrain(item.number)}
+              onClick={() => {
+                addRecentSearch(item.number);
+                onSelectTrain(item.number);
+              }}
               className="px-4 py-3 hover:bg-slate-50 cursor-pointer flex items-center justify-between text-xs transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -328,7 +340,7 @@ export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSea
             <div className="flex items-center justify-between border-b pb-3">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Trains Between Stations</h3>
-                <p className="text-xs text-slate-500">{fromQuery} &rarr; {toQuery}</p>
+                <p className="text-xs text-slate-500">{fromStationQuery} &rarr; {toStationQuery}</p>
               </div>
               <button onClick={() => setShowResultsModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -343,6 +355,7 @@ export default function WimtSearchCards({ onSelectTrain, onFindTrains }: WimtSea
                   <div
                     key={t.trainNumber}
                     onClick={() => {
+                      addRecentSearch(t.trainNumber);
                       onSelectTrain(t.trainNumber);
                       setShowResultsModal(false);
                     }}

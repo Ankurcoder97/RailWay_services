@@ -13,17 +13,24 @@ import type { TrainSearchResult } from '../types/index.js';
 import { Heart } from 'lucide-react';
 
 export default function LiveDashboard() {
-  const { selectedTrainNumber, setSelectedTrainNumber, activeTab } = useTrainStore();
+  const {
+    selectedTrainNumber,
+    setSelectedTrainNumber,
+    activeTab,
+    fromStationQuery,
+    setFromStationQuery,
+    toStationQuery,
+    setToStationQuery
+  } = useTrainStore();
+
   const { data: status, isLoading, isError, refetch } = useTrainTracking(selectedTrainNumber);
 
   const [viewMode, setViewMode] = useState<'search' | 'list' | 'timeline'>('search');
-  const [fromStation, setFromStation] = useState('Goghat (GOGH)');
-  const [toStation, setToStation] = useState('Howrah Junction (HWH)');
   const [trainList, setTrainList] = useState<TrainSearchResult[]>([]);
 
   const handleFindTrains = async (from: string, to: string) => {
-    setFromStation(from);
-    setToStation(to);
+    setFromStationQuery(from);
+    setToStationQuery(to);
     setViewMode('list');
     try {
       const results = await fetchTrainsBetween(from, to);
@@ -74,8 +81,8 @@ export default function LiveDashboard() {
         ) : viewMode === 'list' ? (
           /* Full Morning to Night Trains Schedule List Screen */
           <WimtTrainsList
-            fromStation={fromStation}
-            toStation={toStation}
+            fromStation={fromStationQuery}
+            toStation={toStationQuery}
             trains={trainList}
             onSelectTrain={handleSelectTrain}
             onBack={() => setViewMode('search')}
