@@ -27,11 +27,13 @@ export default function LiveDashboard() {
   const { data: status, isLoading, isError, refetch } = useTrainTracking(selectedTrainNumber);
 
   const [viewMode, setViewMode] = useState<'search' | 'list' | 'timeline'>('search');
+  const [searchSource, setSearchSource] = useState<'stationToStation' | 'spotTrain'>('spotTrain');
   const [trainList, setTrainList] = useState<TrainSearchResult[]>([]);
 
   const handleFindTrains = async (from: string, to: string) => {
     setFromStationQuery(from);
     setToStationQuery(to);
+    setSearchSource('stationToStation');
     setViewMode('list');
     try {
       const results = await fetchTrainsBetween(from, to);
@@ -43,6 +45,10 @@ export default function LiveDashboard() {
 
   const handleSelectTrain = (num: string) => {
     setSelectedTrainNumber(num);
+    // If coming from search cards directly, record search source as spotTrain
+    if (viewMode === 'search') {
+      setSearchSource('spotTrain');
+    }
     setViewMode('timeline');
   };
 
@@ -53,7 +59,11 @@ export default function LiveDashboard() {
 
   const handleBack = () => {
     if (viewMode === 'timeline') {
-      setViewMode('list');
+      if (searchSource === 'stationToStation') {
+        setViewMode('list');
+      } else {
+        setViewMode('search');
+      }
     } else {
       setViewMode('search');
     }
@@ -93,7 +103,10 @@ export default function LiveDashboard() {
             fromStation={fromStationQuery}
             toStation={toStationQuery}
             trains={trainList}
-            onSelectTrain={handleSelectTrain}
+            onSelectTrain={(num) => {
+              setSearchSource('stationToStation');
+              handleSelectTrain(num);
+            }}
             onBack={() => setViewMode('search')}
           />
         ) : viewMode === 'timeline' && status ? (
@@ -112,7 +125,10 @@ export default function LiveDashboard() {
         ) : (
           /* Default Search Cards View */
           <WimtSearchCards 
-            onSelectTrain={handleSelectTrain} 
+            onSelectTrain={(num) => {
+              setSearchSource('spotTrain');
+              handleSelectTrain(num);
+            }}
             onFindTrains={handleFindTrains}
           />
         )}
