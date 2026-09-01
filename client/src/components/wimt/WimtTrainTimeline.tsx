@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, RefreshCw, Bell, BellRing, X, Check, Volume2 } from 'lucide-react';
 import type { LiveTrainStatus, Station } from '../../types/index.js';
 
 interface WimtTrainTimelineProps {
@@ -9,7 +9,12 @@ interface WimtTrainTimelineProps {
 }
 
 export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTrainTimelineProps) {
-  const [dayTab, setDayTab] = useState<'today' | 'yesterday' | 'tomorrow'>('today');
+  // Station Wakeup Alarm State
+  const [alarmStation, setAlarmStation] = useState<Station | null>(null);
+  const [selectedStationForAlarm, setSelectedStationForAlarm] = useState<Station | null>(null);
+  const [showAlarmModal, setShowAlarmModal] = useState(false);
+  const [alarmOffsetMins, setAlarmOffsetMins] = useState(10); // Default 10 mins before arrival
+  const [alarmTriggered, setAlarmTriggered] = useState(false);
 
   const displayTime = (timeStr?: string) => {
     if (!timeStr) return '--:--';
@@ -53,15 +58,55 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
     return clean;
   };
 
+  // Find index of current train position
   const currentIdx = status.stations.findIndex(
     s => s.code === status.currentStation?.code || s.name === status.currentStation?.name || s.status === 'current'
   );
   const activeCurrentIdx = currentIdx >= 0 ? currentIdx : Math.min(1, status.stations.length - 1);
 
+  // Check alarm trigger conditions
+  useEffect(() => {
+    if (!alarmStation) return;
+    const targetIdx = status.stations.findIndex(s => s.code === alarmStation.code);
+    if (targetIdx >= 0 && activeCurrentIdx >= targetIdx - 1) {
+      setAlarmTriggered(true);
+      // Play audio notification chime
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+        osc.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 1.5);
+      } catch (e) {
+        console.warn('Audio alarm chime played note:', e);
+      }
+    }
+  }, [alarmStation, activeCurrentIdx, status.stations]);
+
+  const handleOpenAlarmModal = (st: Station) => {
+    setSelectedStationForAlarm(st);
+    setShowAlarmModal(true);
+  };
+
+  const handleConfirmAlarm = () => {
+    if (selectedStationForAlarm) {
+      setAlarmStation(selectedStationForAlarm);
+      setAlarmTriggered(false);
+      setShowAlarmModal(false);
+    }
+  };
+
+  const handleCancelAlarm = () => {
+    setAlarmStation(null);
+    setAlarmTriggered(false);
+  };
+
   return (
     <div className="max-w-2xl mx-auto font-sans bg-slate-100 min-h-screen pb-12 select-none shadow-lg">
       
-      {/* Top Header Bar */}
+      {/* Top Header Bar (Removed Yesterday / Today / Tomorrow) */}
       <div className="bg-[#1565C0] text-white p-4 sticky top-0 z-30 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -80,28 +125,6 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
             </button>
           </div>
         </div>
-
-        {/* Day Selector (Yesterday, Today, Tomorrow) */}
-        <div className="flex items-center justify-around mt-3 pt-2 border-t border-white/10 text-xs font-bold">
-          <button
-            onClick={() => setDayTab('yesterday')}
-            className={`px-3 py-1 rounded transition-colors ${dayTab === 'yesterday' ? 'bg-white text-[#1565C0]' : 'text-blue-200'}`}
-          >
-            Yesterday
-          </button>
-          <button
-            onClick={() => setDayTab('today')}
-            className={`px-3 py-1 rounded transition-colors ${dayTab === 'today' ? 'bg-white text-[#1565C0]' : 'text-blue-200'}`}
-          >
-            Today
-          </button>
-          <button
-            onClick={() => setDayTab('tomorrow')}
-            className={`px-3 py-1 rounded transition-colors ${dayTab === 'tomorrow' ? 'bg-white text-[#1565C0]' : 'text-blue-200'}`}
-          >
-            Tomorrow
-          </button>
-        </div>
       </div>
 
       {/* Live Status Banner */}
@@ -119,12 +142,37 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
         </div>
       </div>
 
+      {/* Active Alarm Status Banner */}
+      {alarmStation && (
+        <div className={`p-3.5 text-xs font-bold flex items-center justify-between border-b ${
+          alarmTriggered
+            ? 'bg-amber-500 text-slate-950 animate-bounce'
+            : 'bg-amber-100 text-amber-900 border-amber-300'
+        }`}>
+          <div className="flex items-center gap-2">
+            <BellRing className="w-4 h-4 text-amber-700 animate-pulse" />
+            <span>
+              {alarmTriggered
+                ? `⏰ WAKE UP ALARM! Approaching ${alarmStation.name} (${alarmStation.code})!`
+                : `⏰ Wakeup Alarm set for ${alarmStation.name} (${alarmStation.code}) — ${alarmOffsetMins}m before arrival`}
+            </span>
+          </div>
+          <button
+            onClick={handleCancelAlarm}
+            className="px-2 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded font-bold transition-colors"
+          >
+            Cancel Alarm
+          </button>
+        </div>
+      )}
+
       {/* Vertical Station Timeline List */}
       <div className="bg-white border-b shadow-sm relative p-4 space-y-0">
         
         {status.stations.map((st: Station, idx: number) => {
           const isCurrent = idx === activeCurrentIdx;
           const isPassed = idx < activeCurrentIdx || st.status === 'passed';
+          const isAlarmForThisStation = alarmStation?.code === st.code;
 
           return (
             <div key={st.code + idx} className="relative flex items-center py-3.5 border-b border-slate-100 last:border-0 group">
@@ -159,6 +207,19 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
                       {st.name}
                     </span>
                     <span className="text-xs font-semibold text-slate-400">({st.code})</span>
+
+                    {/* Alarm Trigger Button for Station */}
+                    <button
+                      onClick={() => handleOpenAlarmModal(st)}
+                      className={`ml-1.5 p-1 rounded-full transition-all ${
+                        isAlarmForThisStation
+                          ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/50'
+                          : 'text-slate-300 hover:text-amber-500 hover:bg-slate-100'
+                      }`}
+                      title={`Set Wakeup Alarm for ${st.name}`}
+                    >
+                      <Bell className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
                   <div className="text-xs text-slate-500 mt-1 flex items-center gap-3">
@@ -188,6 +249,72 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
         })}
 
       </div>
+
+      {/* Station Wakeup Alarm Modal */}
+      {showAlarmModal && selectedStationForAlarm && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-lg p-5 space-y-4 shadow-2xl relative">
+            
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <BellRing className="w-5 h-5 text-amber-500" />
+                <h3 className="font-bold text-slate-900 text-base">Set Destination Alarm</h3>
+              </div>
+              <button onClick={() => setShowAlarmModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-500">Wakeup alarm for station:</p>
+              <h4 className="text-base font-extrabold text-blue-700 mt-0.5">
+                {selectedStationForAlarm.name} ({selectedStationForAlarm.code})
+              </h4>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700">Ring Alarm Before Arrival:</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[5, 10, 15].map((mins) => (
+                  <button
+                    key={mins}
+                    onClick={() => setAlarmOffsetMins(mins)}
+                    className={`py-2 text-xs font-bold rounded border transition-colors ${
+                      alarmOffsetMins === mins
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    {mins} Mins
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-50 rounded border border-amber-200 text-[11px] text-amber-800 flex items-center gap-2">
+              <Volume2 className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>Alarm chime &amp; notification will play when train approaches {selectedStationForAlarm.name}.</span>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={handleConfirmAlarm}
+                className="flex-1 py-2.5 bg-[#4CAF50] hover:bg-[#43A047] text-white text-xs font-bold rounded shadow-sm transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Set Alarm</span>
+              </button>
+              <button
+                onClick={() => setShowAlarmModal(false)}
+                className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
