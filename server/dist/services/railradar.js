@@ -81,32 +81,38 @@ function formatTime(isoString) {
     if (!isoString)
         return undefined;
     const clean = String(isoString).trim();
-    // 1. If already 12-hour format with AM/PM (e.g. "11:05 PM")
+    // 1. If ISO timestamp string (e.g. "2026-09-01T22:05:00+05:30")
+    const tIndex = clean.indexOf('T');
+    if (tIndex >= 0 && clean.length >= tIndex + 6) {
+        const timePart = clean.substring(tIndex + 1, tIndex + 6);
+        const parts = timePart.split(':');
+        if (parts.length === 2 && !isNaN(parseInt(parts[0], 10))) {
+            let hours = parseInt(parts[0], 10);
+            const mStr = parts[1];
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            if (hours === 0)
+                hours = 12;
+            const formattedHours = hours < 10 ? `0${hours}` : `${hours}`;
+            return `${formattedHours}:${mStr} ${ampm}`;
+        }
+    }
+    // 2. If already 12-hour format with AM/PM (e.g. "10:05 PM")
     if (/\d{1,2}:\d{2}\s*(am|pm)/i.test(clean)) {
         return clean;
     }
-    // 2. If 24-hour time format HH:mm (e.g. "23:05", "17:00", "05:40")
-    const hhmmMatch = clean.match(/^(\d{1,2}):(\d{2})$/);
-    if (hhmmMatch) {
-        let hours = parseInt(hhmmMatch[1], 10);
-        const minutes = hhmmMatch[2];
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12;
-        if (hours === 0)
-            hours = 12;
-        const formattedHours = hours < 10 ? `0${hours}` : `${hours}`;
-        return `${formattedHours}:${minutes} ${ampm}`;
-    }
-    // 3. If ISO timestamp string
-    if (clean.includes('T')) {
-        try {
-            const d = new Date(clean);
-            if (!isNaN(d.getTime())) {
-                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-            }
-        }
-        catch {
-            return clean;
+    // 3. If 24-hour time HH:mm (e.g. "22:05", "17:00", "05:40")
+    if (clean.includes(':')) {
+        const parts = clean.split(':');
+        if (parts.length >= 2 && !isNaN(parseInt(parts[0], 10))) {
+            let hours = parseInt(parts[0], 10);
+            const mStr = parts[1].substring(0, 2);
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            if (hours === 0)
+                hours = 12;
+            const formattedHours = hours < 10 ? `0${hours}` : `${hours}`;
+            return `${formattedHours}:${mStr} ${ampm}`;
         }
     }
     return clean;
@@ -145,6 +151,7 @@ async function searchTrains(query) {
         { trainNumber: '37309', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
         { trainNumber: '37311', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah (HWH)', destination: 'Goghat (GOGH)', runsOn: ['Daily'] },
         { trainNumber: '37319', trainName: 'Howrah - Tarakeswar Fast Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
+        { trainNumber: '37349', trainName: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
         { trainNumber: '15960', trainName: 'Kamrup Express', source: 'Gosaigaonhat / Goghat (GOGH)', destination: 'Howrah (HWH)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat'] },
         { trainNumber: '12951', trainName: 'Mumbai Rajdhani Express', source: 'Mumbai Central (MMCT)', destination: 'New Delhi (NDLS)', runsOn: ['Daily'] },
         { trainNumber: '22436', trainName: 'Vande Bharat Express', source: 'New Delhi (NDLS)', destination: 'Varanasi Jn (BSB)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat', 'Sun'] }
@@ -198,7 +205,7 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
             { trainNumber: '37335', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah (HWH)', destination: 'Goghat (GOGH)', departureTime: '06:15 PM', arrivalTime: '08:20 PM', runsOn: ['Daily'] },
             { trainNumber: '37343', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '08:25 PM', arrivalTime: '09:55 PM', runsOn: ['Daily'] },
             { trainNumber: '37347', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:15 PM', arrivalTime: '11:45 PM', runsOn: ['Daily'] },
-            { trainNumber: '37349', trainName: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '11:05 PM', arrivalTime: '12:35 AM', runsOn: ['Daily'] }
+            { trainNumber: '37349', trainName: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:05 PM', arrivalTime: '11:35 PM', runsOn: ['Daily'] }
         ];
         if (apiTrains.length > 0) {
             const emuOnly = apiTrains.filter(t => t.trainName.toLowerCase().includes('local') || t.trainName.toLowerCase().includes('emu') || t.trainNumber.startsWith('3'));
@@ -229,7 +236,7 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
     ];
 }
 async function getLiveTrainStatus(trainId) {
-    const cleanedId = trainId.replace(/\D/g, '') || '37309';
+    const cleanedId = trainId.replace(/\D/g, '') || '37349';
     const trainNum = cleanedId.padStart(5, '0');
     const apiKey = process.env.RAILRADAR_API_KEY || 'rg_ab166db828b7493bb0084338f68545c9';
     const headers = { Authorization: `Bearer ${apiKey}` };
@@ -340,17 +347,17 @@ async function getLiveTrainStatus(trainId) {
         sourceStation: 'Howrah Junction (HWH)',
         destinationStation: 'Tarakeswar (TAK)',
         currentStation: {
-            code: 'HPL',
-            name: 'Haripal',
-            lat: 22.831,
-            lng: 88.119,
-            scheduledArrival: '08:45 AM',
-            scheduledDeparture: '08:45 AM',
-            actualArrival: '08:45 AM',
-            actualDeparture: '08:45 AM',
-            delayMinutes: 0,
+            code: 'SIGR',
+            name: 'Singur',
+            lat: 22.812,
+            lng: 88.229,
+            scheduledArrival: '10:45 PM',
+            scheduledDeparture: '10:45 PM',
+            actualArrival: '10:50 PM',
+            actualDeparture: '10:50 PM',
+            delayMinutes: 5,
             platform: '1',
-            distanceFromSourceKm: 45,
+            distanceFromSourceKm: 34,
             status: 'current',
             elevationMeters: 120
         },
@@ -359,11 +366,11 @@ async function getLiveTrainStatus(trainId) {
             name: 'Tarakeswar',
             lat: 22.882,
             lng: 88.014,
-            scheduledArrival: '09:15 AM',
-            scheduledDeparture: '09:15 AM',
-            actualArrival: '09:15 AM',
-            actualDeparture: '09:15 AM',
-            delayMinutes: 0,
+            scheduledArrival: '11:35 PM',
+            scheduledDeparture: '11:35 PM',
+            actualArrival: '11:40 PM',
+            actualDeparture: '11:40 PM',
+            delayMinutes: 5,
             platform: '1',
             distanceFromSourceKm: 57,
             status: 'upcoming',
@@ -371,23 +378,33 @@ async function getLiveTrainStatus(trainId) {
         },
         lastUpdated: new Date().toISOString(),
         isStale: false,
-        delayMinutes: 0,
+        delayMinutes: 5,
         speedKmh: 42.5,
-        progressPercent: 80,
-        distanceCoveredKm: 45,
-        distanceRemainingKm: 12,
+        progressPercent: 60,
+        distanceCoveredKm: 34,
+        distanceRemainingKm: 23,
         totalDistanceKm: 57,
-        currentLat: 22.831,
-        currentLng: 88.119,
+        currentLat: 22.812,
+        currentLng: 88.229,
         bearing: 125,
         stations: [
-            { code: 'HWH', name: 'Howrah Junction', lat: 22.582, lng: 88.342, scheduledDeparture: '07:45 AM', actualDeparture: '07:45 AM', delayMinutes: 0, platform: '14', distanceFromSourceKm: 0, status: 'passed', elevationMeters: 10 },
-            { code: 'HPL', name: 'Haripal', lat: 22.831, lng: 88.119, scheduledArrival: '08:45 AM', scheduledDeparture: '08:45 AM', actualArrival: '08:45 AM', actualDeparture: '08:45 AM', delayMinutes: 0, platform: '1', distanceFromSourceKm: 45, status: 'current', elevationMeters: 15 },
-            { code: 'TAK', name: 'Tarakeswar', lat: 22.882, lng: 88.014, scheduledArrival: '09:15 AM', scheduledDeparture: '09:15 AM', actualArrival: '09:15 AM', actualDeparture: '09:15 AM', delayMinutes: 0, platform: '1', distanceFromSourceKm: 57, status: 'upcoming', elevationMeters: 20 }
+            { code: 'HWH', name: 'Howrah Junction', lat: 22.582, lng: 88.342, scheduledDeparture: '10:05 PM', actualDeparture: '10:10 PM', delayMinutes: 5, platform: '4', distanceFromSourceKm: 0, status: 'passed', elevationMeters: 10 },
+            { code: 'HJN', name: 'Howrah Jn Cabin', lat: 22.590, lng: 88.340, scheduledArrival: '10:06 PM', actualArrival: '10:11 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 1, status: 'passed', elevationMeters: 10 },
+            { code: 'SYAE', name: 'Liluah Sorting Yard Cabin', lat: 22.610, lng: 88.335, scheduledArrival: '10:10 PM', actualArrival: '10:15 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 3, status: 'passed', elevationMeters: 12 },
+            { code: 'LLH', name: 'Liluah', lat: 22.620, lng: 88.330, scheduledArrival: '10:19 PM', actualArrival: '10:24 PM', delayMinutes: 5, platform: '3', distanceFromSourceKm: 5, status: 'passed', elevationMeters: 12 },
+            { code: 'BEQ', name: 'Belur', lat: 22.630, lng: 88.325, scheduledArrival: '10:26 PM', actualArrival: '10:31 PM', delayMinutes: 5, platform: '3', distanceFromSourceKm: 6, status: 'passed', elevationMeters: 12 },
+            { code: 'BLY', name: 'Bally', lat: 22.650, lng: 88.320, scheduledArrival: '10:28 PM', actualArrival: '10:33 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 9, status: 'passed', elevationMeters: 12 },
+            { code: 'SIGR', name: 'Singur', lat: 22.812, lng: 88.229, scheduledArrival: '10:45 PM', actualArrival: '10:50 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 34, status: 'current', elevationMeters: 15 },
+            { code: 'TAK', name: 'Tarakeswar', lat: 22.882, lng: 88.014, scheduledArrival: '11:35 PM', actualArrival: '11:40 PM', delayMinutes: 5, platform: '1', distanceFromSourceKm: 57, status: 'upcoming', elevationMeters: 20 }
         ],
         routeCoordinates: [
             [88.342, 22.582],
-            [88.119, 22.831],
+            [88.340, 22.590],
+            [88.335, 22.610],
+            [88.330, 22.620],
+            [88.325, 22.630],
+            [88.320, 22.650],
+            [88.229, 22.812],
             [88.014, 22.882]
         ]
     };
