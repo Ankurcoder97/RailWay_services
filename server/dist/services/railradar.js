@@ -8,11 +8,15 @@ exports.getTrainsBetweenStations = getTrainsBetweenStations;
 exports.getLiveTrainStatus = getLiveTrainStatus;
 const axios_1 = __importDefault(require("axios"));
 const RAILRADAR_BASE_URL = 'https://api.railradar.in/v1';
-// Station Code Dictionary for common Indian Railway stations
+// Station Code Dictionary for common Indian Railway stations including Suburban & Local lines
 const STATION_CODE_MAP = {
     goghat: 'GOGH',
     gosaigaonhat: 'GOGH',
     gogh: 'GOGH',
+    tarakeswar: 'TAK',
+    tak: 'TAK',
+    haripal: 'HPL',
+    hpl: 'HPL',
     howrah: 'HWH',
     hwh: 'HWH',
     mumbai: 'MMCT',
@@ -29,6 +33,8 @@ const STATION_CODE_MAP = {
     varanasi: 'BSB',
     bsb: 'BSB',
     kolkata: 'HWH',
+    sealdah: 'SDAH',
+    sdah: 'SDAH',
     patna: 'PNBE',
     pnbe: 'PNBE',
     chennai: 'MAS',
@@ -65,7 +71,6 @@ function resolveStationCode(query) {
     if (STATION_CODE_MAP[clean]) {
         return STATION_CODE_MAP[clean];
     }
-    // Try matching words
     for (const [key, code] of Object.entries(STATION_CODE_MAP)) {
         if (clean.includes(key) || key.includes(clean)) {
             return code;
@@ -102,7 +107,7 @@ async function searchTrains(query) {
                 return [
                     {
                         trainNumber: t.number || trainNum,
-                        trainName: t.name || `Express ${trainNum}`,
+                        trainName: t.name || `Train ${trainNum}`,
                         source: t.source?.name ? `${t.source.name} (${t.source.code})` : 'Origin',
                         destination: t.destination?.name ? `${t.destination.name} (${t.destination.code})` : 'Destination',
                         runsOn: t.runDays || ['Daily']
@@ -114,10 +119,13 @@ async function searchTrains(query) {
             // Fallthrough
         }
     }
+    // Pre-configured list including Express and Local Suburban EMUs
     const popularList = [
-        { trainNumber: '22436', trainName: 'Vande Bharat Express', source: 'New Delhi (NDLS)', destination: 'Varanasi Jn (BSB)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat', 'Sun'] },
-        { trainNumber: '12951', trainName: 'Mumbai Rajdhani Express', source: 'Mumbai Central (MMCT)', destination: 'New Delhi (NDLS)', runsOn: ['Daily'] },
+        { trainNumber: '37305', trainName: 'Howrah - Haripal Local (EMU)', source: 'Howrah (HWH)', destination: 'Haripal (HPL)', runsOn: ['Daily'] },
+        { trainNumber: '37309', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
         { trainNumber: '15960', trainName: 'Kamrup Express', source: 'Gosaigaonhat / Goghat (GOGH)', destination: 'Howrah (HWH)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat'] },
+        { trainNumber: '12951', trainName: 'Mumbai Rajdhani Express', source: 'Mumbai Central (MMCT)', destination: 'New Delhi (NDLS)', runsOn: ['Daily'] },
+        { trainNumber: '22436', trainName: 'Vande Bharat Express', source: 'New Delhi (NDLS)', destination: 'Varanasi Jn (BSB)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat', 'Sun'] },
         { trainNumber: '12002', trainName: 'Bhopal Shatabdi Express', source: 'New Delhi (NDLS)', destination: 'Rani Kamlapati (RKMP)', runsOn: ['Daily'] },
         { trainNumber: '12626', trainName: 'Kerala Express', source: 'New Delhi (NDLS)', destination: 'Thiruvananthapuram Central (TVC)', runsOn: ['Daily'] },
         { trainNumber: '12301', trainName: 'Howrah Rajdhani Express', source: 'Howrah Jn (HWH)', destination: 'New Delhi (NDLS)', runsOn: ['Daily'] }
@@ -128,7 +136,7 @@ async function searchTrains(query) {
     return [
         {
             trainNumber: trainNum.toUpperCase(),
-            trainName: `Superfast Express (${trainNum.toUpperCase()})`,
+            trainName: `Express/Local Train (${trainNum.toUpperCase()})`,
             source: 'New Delhi (NDLS)',
             destination: 'Mumbai Central (MMCT)',
             runsOn: ['Daily']
@@ -144,14 +152,14 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
         const res = await axios_1.default.get(`${RAILRADAR_BASE_URL}/trains/between/${fromCode}/${toCode}`, { headers, timeout: 6000 });
         if (res.data && res.data.data && Array.isArray(res.data.data.trains) && res.data.data.trains.length > 0) {
             return res.data.data.trains.map((t) => ({
-                trainNumber: t.train?.number || '15960',
-                trainName: t.train?.name || 'Express Train',
+                trainNumber: t.train?.number || '37305',
+                trainName: t.train?.name || `${t.train?.type || 'Local'} Train`,
                 source: `${t.from?.name || fromQuery} (${t.from?.code || fromCode})`,
                 destination: `${t.to?.name || toQuery} (${t.to?.code || toCode})`,
                 departureTime: t.from?.departure || '13:35',
                 arrivalTime: t.to?.arrival || '04:40',
-                distanceKm: Math.round(t.distance || 500),
-                durationMinutes: t.duration || 300,
+                distanceKm: Math.round(t.distance || 50),
+                durationMinutes: t.duration || 80,
                 runsOn: t.train?.runDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
             }));
         }
@@ -159,10 +167,20 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
     catch (err) {
         console.warn(`RailRadar trains between ${fromCode}->${toCode} call note:`, err.message);
     }
-    // Dynamic fallback options for station pairs
     const cleanFrom = fromQuery.trim() || 'Origin';
     const cleanTo = toQuery.trim() || 'Destination';
     return [
+        {
+            trainNumber: '37309',
+            trainName: `Howrah - Tarakeswar Local EMU (${cleanFrom} -> ${cleanTo})`,
+            source: `${cleanFrom.toUpperCase()} (${fromCode})`,
+            destination: `${cleanTo.toUpperCase()} (${toCode})`,
+            departureTime: '13:35',
+            arrivalTime: '15:05',
+            distanceKm: 57,
+            durationMinutes: 90,
+            runsOn: ['Daily']
+        },
         {
             trainNumber: '15960',
             trainName: `Kamrup Express (${cleanFrom} -> ${cleanTo})`,
@@ -175,26 +193,15 @@ async function getTrainsBetweenStations(fromQuery, toQuery) {
             runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat']
         },
         {
-            trainNumber: '13024',
-            trainName: `Gaya - Howrah Express (${cleanFrom} -> ${cleanTo})`,
+            trainNumber: '37305',
+            trainName: `Howrah - Haripal Local EMU (${cleanFrom} -> ${cleanTo})`,
             source: `${cleanFrom.toUpperCase()} (${fromCode})`,
             destination: `${cleanTo.toUpperCase()} (${toCode})`,
             departureTime: '18:20',
-            arrivalTime: '03:10',
-            distanceKm: 420,
-            durationMinutes: 530,
+            arrivalTime: '19:40',
+            distanceKm: 45,
+            durationMinutes: 80,
             runsOn: ['Daily']
-        },
-        {
-            trainNumber: '12348',
-            trainName: `Superfast Express (${cleanFrom} -> ${cleanTo})`,
-            source: `${cleanFrom.toUpperCase()} (${fromCode})`,
-            destination: `${cleanTo.toUpperCase()} (${toCode})`,
-            departureTime: '06:15',
-            arrivalTime: '11:45',
-            distanceKm: 380,
-            durationMinutes: 330,
-            runsOn: ['Mon', 'Wed', 'Fri']
         }
     ];
 }
@@ -233,8 +240,8 @@ async function getLiveTrainStatus(trainId) {
                 const code = st.stationCode || st.station?.code || `STN-${idx}`;
                 const name = st.stationName || st.station?.name || `Station ${code}`;
                 const coords = coordsMap.get(code) || {
-                    lat: 28.6441 - (idx * 0.05),
-                    lng: 77.2197 + (idx * 0.08)
+                    lat: 22.5828 + (idx * 0.02),
+                    lng: 88.3428 - (idx * 0.02)
                 };
                 const isCurrentLoc = liveData.currentLocation?.stationCode === code || st.status === 'at-station' || st.status === 'current';
                 const isPassed = st.status === 'departed' || (!isCurrentLoc && idx < (rawRoute.findIndex((r) => r.status === 'at-station' || r.status === 'current') || 1));
@@ -263,7 +270,7 @@ async function getLiveTrainStatus(trainId) {
             const routeCoordinates = stations.map(s => [s.lng, s.lat]);
             return {
                 trainNumber: trainMeta.number || trainNum,
-                trainName: trainMeta.name || `Express ${trainNum}`,
+                trainName: trainMeta.name || `Local/Express ${trainNum}`,
                 sourceStation: trainMeta.source?.name ? `${trainMeta.source.name} (${trainMeta.source.code})` : stations[0]?.name || 'Origin',
                 destinationStation: trainMeta.destination?.name ? `${trainMeta.destination.name} (${trainMeta.destination.code})` : stations[stations.length - 1]?.name || 'Destination',
                 currentStation: activeCurrentStation,
@@ -271,7 +278,7 @@ async function getLiveTrainStatus(trainId) {
                 lastUpdated: liveData.lastUpdatedAt || new Date().toISOString(),
                 isStale: Boolean(liveData.isStale),
                 delayMinutes: liveData.delayMinutes || activeCurrentStation.delayMinutes || 0,
-                speedKmh: trainMeta.avgSpeed || trainMeta.maxSpeed || 95,
+                speedKmh: trainMeta.avgSpeed || trainMeta.maxSpeed || 45,
                 progressPercent,
                 distanceCoveredKm: distCovered,
                 distanceRemainingKm: distRemaining,
@@ -289,7 +296,7 @@ async function getLiveTrainStatus(trainId) {
     }
     return {
         trainNumber: trainNum,
-        trainName: `Express Train (${trainNum})`,
+        trainName: `Express/Local Train (${trainNum})`,
         sourceStation: 'Mumbai Central (MMCT)',
         destinationStation: 'New Delhi (NDLS)',
         currentStation: {
