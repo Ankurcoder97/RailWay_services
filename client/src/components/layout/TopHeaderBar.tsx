@@ -27,7 +27,7 @@ const COMMON_STATIONS = [
 ];
 
 export default function TopHeaderBar({ secondsUntilRefresh = 9, onShareClick }: TopHeaderBarProps) {
-  const [searchMode, setSearchMode] = useState<'train' | 'route'>('route');
+  const [searchMode, setSearchMode] = useState<'route' | 'train'>('route');
   
   // Train No / Name Search State
   const [trainQuery, setTrainQuery] = useState('');
@@ -35,8 +35,8 @@ export default function TopHeaderBar({ secondsUntilRefresh = 9, onShareClick }: 
   const [showTrainSuggestions, setShowTrainSuggestions] = useState(false);
 
   // Route Search State
-  const [fromQuery, setFromQuery] = useState('Goghat (GOGH)');
-  const [toQuery, setToQuery] = useState('Howrah (HWH)');
+  const [fromQuery, setFromQuery] = useState('Howrah Junction (HWH)');
+  const [toQuery, setToQuery] = useState('Tarakeswar (TAK)');
   const [showFromSuggestions, setShowFromSuggestions] = useState(false);
   const [showToSuggestions, setShowToSuggestions] = useState(false);
   const [routeResults, setRouteResults] = useState<TrainSearchResult[]>([]);
@@ -92,10 +92,10 @@ export default function TopHeaderBar({ secondsUntilRefresh = 9, onShareClick }: 
 
   return (
     <>
-      <header className="w-full bg-[#080C14] border-b border-slate-800/80 px-6 py-3 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-20">
+      <header className="w-full bg-[#080C14] border-b border-slate-800/80 px-6 py-3 flex items-center justify-between gap-4 sticky top-0 z-20">
         
-        {/* Center: Search Mode Switcher & Input Widget */}
-        <div className="flex flex-wrap items-center gap-3 flex-1 max-w-3xl">
+        {/* Single Row Search Container */}
+        <div className="flex items-center gap-3 flex-1 max-w-4xl min-w-0">
           
           {/* Mode Switcher Tabs */}
           <div className="flex items-center p-1 bg-slate-900 rounded-xl border border-slate-800 shrink-0">
@@ -108,7 +108,8 @@ export default function TopHeaderBar({ secondsUntilRefresh = 9, onShareClick }: 
               }`}
             >
               <MapPin className="w-3.5 h-3.5" />
-              <span>By Route (From &rarr; To)</span>
+              <span className="hidden sm:inline">By Route</span>
+              <span className="sm:hidden">Route</span>
             </button>
 
             <button
@@ -120,16 +121,17 @@ export default function TopHeaderBar({ secondsUntilRefresh = 9, onShareClick }: 
               }`}
             >
               <Train className="w-3.5 h-3.5" />
-              <span>By Train No / Name</span>
+              <span className="hidden sm:inline">By Train No</span>
+              <span className="sm:hidden">Train</span>
             </button>
           </div>
 
           {/* Mode 1: Search by Route (From -> To) */}
           {searchMode === 'route' ? (
-            <div className="flex flex-wrap items-center gap-2 flex-1 relative">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
               
               {/* From Input */}
-              <div className="relative flex-1 min-w-[160px]">
+              <div className="relative flex-1 min-w-[140px]">
                 <div className="absolute top-1 left-3 text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
                   From
                 </div>
@@ -138,8 +140,8 @@ export default function TopHeaderBar({ secondsUntilRefresh = 9, onShareClick }: 
                   value={fromQuery}
                   onChange={(e) => setFromQuery(e.target.value)}
                   onFocus={() => setShowFromSuggestions(true)}
-                  placeholder="e.g. Goghat (GOGH)..."
-                  className="w-full pt-4 pb-1.5 pl-3 pr-8 bg-slate-900/90 border border-slate-700/80 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  placeholder="From Station..."
+                  className="w-full pt-4 pb-1.5 pl-3 pr-7 bg-slate-900/90 border border-slate-700/80 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-blue-500 transition-colors truncate"
                 />
                 <Target className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 bottom-2" />
 
@@ -172,7 +174,7 @@ export default function TopHeaderBar({ secondsUntilRefresh = 9, onShareClick }: 
               </button>
 
               {/* To Input */}
-              <div className="relative flex-1 min-w-[160px]">
+              <div className="relative flex-1 min-w-[140px]">
                 <div className="absolute top-1 left-3 text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
                   To
                 </div>
@@ -181,8 +183,8 @@ export default function TopHeaderBar({ secondsUntilRefresh = 9, onShareClick }: 
                   value={toQuery}
                   onChange={(e) => setToQuery(e.target.value)}
                   onFocus={() => setShowToSuggestions(true)}
-                  placeholder="e.g. Howrah (HWH)..."
-                  className="w-full pt-4 pb-1.5 pl-3 pr-3 bg-slate-900/90 border border-slate-700/80 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  placeholder="To Station..."
+                  className="w-full pt-4 pb-1.5 pl-3 pr-3 bg-slate-900/90 border border-slate-700/80 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-blue-500 transition-colors truncate"
                 />
 
                 {showToSuggestions && (
@@ -216,7 +218,7 @@ export default function TopHeaderBar({ secondsUntilRefresh = 9, onShareClick }: 
             </div>
           ) : (
             /* Mode 2: Search by Train No or Name */
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <div className="relative flex items-center">
                 <Search className="w-4 h-4 text-blue-400 absolute left-3.5" />
                 <input
@@ -227,7 +229,7 @@ export default function TopHeaderBar({ secondsUntilRefresh = 9, onShareClick }: 
                     setShowTrainSuggestions(true);
                   }}
                   onFocus={() => setShowTrainSuggestions(true)}
-                  placeholder="Enter train number or local name (e.g. 37305, 12951, Goghat Local, Rajdhani)..."
+                  placeholder="Enter train number or local name (e.g. 37305, 12951, Goghat Local)..."
                   className="w-full pl-10 pr-8 py-3 bg-slate-900/90 border border-slate-700/80 rounded-xl text-xs font-semibold text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
                 />
                 {trainQuery && (
