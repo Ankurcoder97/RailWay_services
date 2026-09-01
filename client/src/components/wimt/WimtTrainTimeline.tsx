@@ -142,8 +142,8 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
   return (
     <div className="max-w-2xl mx-auto font-sans bg-slate-100 min-h-screen pb-12 select-none shadow-lg">
       
-      {/* Top Header Bar */}
-      <div className="bg-[#1565C0] text-white p-4 sticky top-0 z-30 shadow-md">
+      {/* Top Header Bar sticky below WimtHeader (top-[98px]) */}
+      <div className="bg-[#1565C0] text-white p-4 sticky top-[98px] z-20 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={onBack} className="p-1 rounded hover:bg-white/10">

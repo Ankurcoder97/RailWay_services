@@ -20,8 +20,8 @@ export default function WimtTrainsList({ fromStation, toStation, trains, onSelec
   return (
     <div className="max-w-2xl mx-auto font-sans bg-white min-h-screen pb-12 select-none shadow-md">
       
-      {/* 1. Header Bar */}
-      <div className="bg-[#1565C0] text-white p-3 sticky top-0 z-30 shadow-md">
+      {/* 1. Header Bar sticky below WimtHeader (top-[98px]) */}
+      <div className="bg-[#1565C0] text-white p-3 sticky top-[98px] z-20 shadow-md">
         
         {/* Top Control Bar: Back Arrow + Date Selector Dropdown + Quota Dropdown */}
         <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/15">
@@ -74,8 +74,7 @@ export default function WimtTrainsList({ fromStation, toStation, trains, onSelec
       {/* 2. Morning to Night Full Train Schedule List */}
       <div className="divide-y divide-slate-200">
         {trains.map((t, idx) => {
-          // Identify trains that reached destination within last 24h (e.g. morning EMU locals)
-          const isRecentlyReached = idx === 0 || idx === 1 || idx === 3; // e.g. 37305, 37307, 37309 reached in morning
+          const isRecentlyReached = idx === 0 || idx === 1 || idx === 3;
 
           return (
             <div
