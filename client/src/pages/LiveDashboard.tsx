@@ -10,13 +10,14 @@ import SkeletonLoader from '../components/ui/SkeletonLoader.js';
 import ErrorState from '../components/ui/ErrorState.js';
 import { fetchTrainsBetween } from '../api/client.js';
 import type { TrainSearchResult } from '../types/index.js';
-import { Heart } from 'lucide-react';
+import { Heart, ArrowLeft } from 'lucide-react';
 
 export default function LiveDashboard() {
   const {
     selectedTrainNumber,
     setSelectedTrainNumber,
     activeTab,
+    setActiveTab,
     fromStationQuery,
     setFromStationQuery,
     toStationQuery,
@@ -45,6 +46,11 @@ export default function LiveDashboard() {
     setViewMode('timeline');
   };
 
+  const handleBackToSearchFromMap = () => {
+    setActiveTab('dashboard');
+    setViewMode('search');
+  };
+
   const handleBack = () => {
     if (viewMode === 'timeline') {
       setViewMode('list');
@@ -63,20 +69,23 @@ export default function LiveDashboard() {
       <main className="flex-1 p-3 sm:p-4">
         
         {/* If Active Tab is Map */}
-        {activeTab === 'map' && status ? (
+        {activeTab === 'map' ? (
           <div className="max-w-4xl mx-auto space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-slate-200">
               <button
-                onClick={() => setViewMode('search')}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-bold"
+                onClick={handleBackToSearchFromMap}
+                className="px-3 py-1.5 bg-[#1565C0] hover:bg-blue-700 text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors"
               >
-                &larr; Back to Search
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Search</span>
               </button>
-              <span className="font-bold text-slate-800 text-sm">
-                Train #{status.trainNumber} - {status.trainName}
-              </span>
+              {status && (
+                <span className="font-bold text-slate-800 text-xs sm:text-sm truncate max-w-[200px] sm:max-w-none">
+                  Train #{status.trainNumber} - {status.trainName}
+                </span>
+              )}
             </div>
-            <TrainMap status={status} />
+            {status ? <TrainMap status={status} /> : <SkeletonLoader />}
           </div>
         ) : viewMode === 'list' ? (
           /* Full Morning to Night Trains Schedule List Screen */
