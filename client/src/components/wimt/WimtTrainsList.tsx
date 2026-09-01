@@ -10,12 +10,37 @@ interface WimtTrainsListProps {
   onBack: () => void;
 }
 
+function timeToMinutes(timeStr?: string): number {
+  if (!timeStr) return 0;
+  const str = String(timeStr).trim();
+  let h = 0, m = 0;
+  if (str.includes('PM') || str.includes('pm')) {
+    const parts = str.replace(/(AM|PM|am|pm)/gi, '').trim().split(':');
+    h = parseInt(parts[0], 10) || 0;
+    m = parseInt(parts[1], 10) || 0;
+    if (h < 12) h += 12;
+  } else if (str.includes('AM') || str.includes('am')) {
+    const parts = str.replace(/(AM|PM|am|pm)/gi, '').trim().split(':');
+    h = parseInt(parts[0], 10) || 0;
+    m = parseInt(parts[1], 10) || 0;
+    if (h === 12) h = 0;
+  } else {
+    const parts = str.split(':');
+    h = parseInt(parts[0], 10) || 0;
+    m = parseInt(parts[1], 10) || 0;
+  }
+  return h * 60 + m;
+}
+
 export default function WimtTrainsList({ fromStation, toStation, trains, onSelectTrain, onBack }: WimtTrainsListProps) {
   const [selectedDate, setSelectedDate] = useState('All Dates');
   const [selectedQuota, setSelectedQuota] = useState('GN - Unreserved');
 
   const cleanFrom = fromStation.replace(/\(.*?\)/, '').trim() || 'Origin';
   const cleanTo = toStation.replace(/\(.*?\)/, '').trim() || 'Destination';
+
+  // Sort trains strictly chronologically by departure time!
+  const sortedTrains = [...trains].sort((a, b) => timeToMinutes(a.departureTime) - timeToMinutes(b.departureTime));
 
   return (
     <div className="max-w-2xl mx-auto font-sans bg-white min-h-screen pb-12 select-none shadow-md">
@@ -71,10 +96,10 @@ export default function WimtTrainsList({ fromStation, toStation, trains, onSelec
 
       </div>
 
-      {/* 2. Morning to Night Full Train Schedule List */}
+      {/* 2. Chronologically Sorted Train Schedule List (Morning to Night) */}
       <div className="divide-y divide-slate-200">
-        {trains.map((t, idx) => {
-          const isRecentlyReached = idx === 0 || idx === 1 || idx === 3;
+        {sortedTrains.map((t, idx) => {
+          const isRecentlyReached = idx < 3;
 
           return (
             <div
