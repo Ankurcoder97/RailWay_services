@@ -8,13 +8,13 @@ export default function WimtHeader() {
     <header className="w-full bg-[#1565C0] text-white shadow-md sticky top-0 z-30 select-none">
       
       {/* Top Title Bar */}
-      <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           <button className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
-            <Menu className="w-6 h-6 text-white" />
+            <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </button>
           <div>
-            <h1 className="text-xl font-bold tracking-wide">Where is my Train</h1>
+            <h1 className="text-lg sm:text-xl font-bold tracking-wide">Where is my Train</h1>
           </div>
         </div>
 
@@ -26,15 +26,15 @@ export default function WimtHeader() {
       </div>
 
       {/* Navigation Tabs (SPOT, LIVE MAP) */}
-      <div className="max-w-4xl mx-auto px-4 flex items-center border-t border-white/10">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 flex items-center border-t border-white/10">
         <button
           onClick={() => setActiveTab('dashboard')}
-          className={`flex-1 py-3 text-center text-sm font-bold tracking-wider uppercase transition-all relative ${
+          className={`flex-1 py-2.5 sm:py-3 text-center text-xs sm:text-sm font-bold tracking-wider uppercase transition-all relative ${
             activeTab === 'dashboard' ? 'text-white' : 'text-blue-200 hover:text-white'
           }`}
         >
           <div className="flex items-center justify-center gap-1.5">
-            <Search className="w-4 h-4" />
+            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>SPOT</span>
           </div>
           {activeTab === 'dashboard' && (
@@ -44,12 +44,12 @@ export default function WimtHeader() {
 
         <button
           onClick={() => setActiveTab('map')}
-          className={`flex-1 py-3 text-center text-sm font-bold tracking-wider uppercase transition-all relative ${
+          className={`flex-1 py-2.5 sm:py-3 text-center text-xs sm:text-sm font-bold tracking-wider uppercase transition-all relative ${
             activeTab === 'map' ? 'text-white' : 'text-blue-200 hover:text-white'
           }`}
         >
           <div className="flex items-center justify-center gap-1.5">
-            <MapPin className="w-4 h-4" />
+            <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>LIVE MAP</span>
           </div>
           {activeTab === 'map' && (
