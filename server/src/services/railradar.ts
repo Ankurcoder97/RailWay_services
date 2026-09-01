@@ -57,6 +57,32 @@ const STATION_CODE_MAP: Record<string, string> = {
   kota: 'KOTA',
 };
 
+const LOCAL_TRAINS_MASTER: Record<string, { name: string; source: string; dest: string; dep: string; arr: string; isUp: boolean }> = {
+  // UP TRAINS (Goghat/Tarakeswar/Haripal -> Howrah)
+  '37306': { name: 'Haripal - Howrah Local (EMU)', source: 'Haripal (HPL)', dest: 'Howrah Junction (HWH)', dep: '07:15 AM', arr: '08:35 AM', isUp: true },
+  '37308': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '08:25 AM', arr: '09:55 AM', isUp: true },
+  '37310': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '09:30 AM', arr: '11:00 AM', isUp: true },
+  '37312': { name: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', dest: 'Howrah Junction (HWH)', dep: '10:55 AM', arr: '01:00 PM', isUp: true },
+  '37316': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '12:00 PM', arr: '01:30 PM', isUp: true },
+  '37320': { name: 'Tarakeswar - Howrah Fast Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '03:05 PM', arr: '04:30 PM', isUp: true },
+  '37328': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '06:15 PM', arr: '07:45 PM', isUp: true },
+  '37336': { name: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', dest: 'Howrah Junction (HWH)', dep: '08:35 PM', arr: '10:40 PM', isUp: true },
+  '37344': { name: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', dest: 'Howrah Junction (HWH)', dep: '10:10 PM', arr: '11:40 PM', isUp: true },
+
+  // DOWN TRAINS (Howrah -> Haripal/Tarakeswar/Goghat)
+  '37305': { name: 'Howrah - Haripal Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Haripal (HPL)', dep: '05:40 AM', arr: '07:00 AM', isUp: false },
+  '37307': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '06:40 AM', arr: '08:12 AM', isUp: false },
+  '37309': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '07:45 AM', arr: '09:15 AM', isUp: false },
+  '37311': { name: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Goghat (GOGH)', dep: '08:35 AM', arr: '10:40 AM', isUp: false },
+  '37315': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '10:15 AM', arr: '11:45 AM', isUp: false },
+  '37319': { name: 'Howrah - Tarakeswar Fast Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '01:25 PM', arr: '02:50 PM', isUp: false },
+  '37327': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '04:30 PM', arr: '06:02 PM', isUp: false },
+  '37335': { name: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Goghat (GOGH)', dep: '06:15 PM', arr: '08:20 PM', isUp: false },
+  '37343': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '08:25 PM', arr: '09:55 PM', isUp: false },
+  '37347': { name: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '10:15 PM', arr: '11:45 PM', isUp: false },
+  '37349': { name: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah Junction (HWH)', dest: 'Tarakeswar (TAK)', dep: '10:05 PM', arr: '11:35 PM', isUp: false }
+};
+
 const HWH_TAK_MASTER_ROUTE = [
   { code: 'HWH', name: 'Howrah Junction', platform: '4', dist: 0, lat: 22.582, lng: 88.342 },
   { code: 'HJN', name: 'Howrah Jn Cabin', platform: '1', dist: 1, lat: 22.590, lng: 88.340 },
@@ -192,12 +218,13 @@ export async function searchTrains(query: string): Promise<TrainSearchResult[]> 
       const res = await axios.get(`${RAILRADAR_BASE_URL}/trains/${trainNum}`, { headers, timeout: 5000 });
       if (res.data && res.data.data && res.data.data.train) {
         const t = res.data.data.train;
+        const master = LOCAL_TRAINS_MASTER[trainNum];
         return [
           {
             trainNumber: t.number || trainNum,
-            trainName: t.name || `Train ${trainNum}`,
-            source: t.source?.name ? `${t.source.name} (${t.source.code})` : 'Origin',
-            destination: t.destination?.name ? `${t.destination.name} (${t.destination.code})` : 'Destination',
+            trainName: master?.name || t.name || `Train ${trainNum}`,
+            source: master?.source || (t.source?.name ? `${t.source.name} (${t.source.code})` : 'Origin'),
+            destination: master?.dest || (t.destination?.name ? `${t.destination.name} (${t.destination.code})` : 'Destination'),
             runsOn: t.runDays || ['Daily']
           }
         ];
@@ -208,13 +235,18 @@ export async function searchTrains(query: string): Promise<TrainSearchResult[]> 
   }
 
   const popularList: TrainSearchResult[] = [
-    { trainNumber: '37305', trainName: 'Howrah - Haripal Local (EMU)', source: 'Howrah (HWH)', destination: 'Haripal (HPL)', runsOn: ['Daily'] },
-    { trainNumber: '37307', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
-    { trainNumber: '37309', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
-    { trainNumber: '37311', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah (HWH)', destination: 'Goghat (GOGH)', runsOn: ['Daily'] },
-    { trainNumber: '37319', trainName: 'Howrah - Tarakeswar Fast Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
-    { trainNumber: '37349', trainName: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
-    { trainNumber: '15960', trainName: 'Kamrup Express', source: 'Gosaigaonhat / Goghat (GOGH)', destination: 'Howrah (HWH)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat'] },
+    { trainNumber: '37305', trainName: 'Howrah - Haripal Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Haripal (HPL)', runsOn: ['Daily'] },
+    { trainNumber: '37306', trainName: 'Haripal - Howrah Local (EMU)', source: 'Haripal (HPL)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'] },
+    { trainNumber: '37307', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
+    { trainNumber: '37308', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'] },
+    { trainNumber: '37309', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
+    { trainNumber: '37310', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'] },
+    { trainNumber: '37311', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Goghat (GOGH)', runsOn: ['Daily'] },
+    { trainNumber: '37312', trainName: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'] },
+    { trainNumber: '37319', trainName: 'Howrah - Tarakeswar Fast Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
+    { trainNumber: '37336', trainName: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', destination: 'Howrah Junction (HWH)', runsOn: ['Daily'] },
+    { trainNumber: '37349', trainName: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', runsOn: ['Daily'] },
+    { trainNumber: '15960', trainName: 'Kamrup Express', source: 'Gosaigaonhat / Goghat (GOGH)', destination: 'Howrah Junction (HWH)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat'] },
     { trainNumber: '12951', trainName: 'Mumbai Rajdhani Express', source: 'Mumbai Central (MMCT)', destination: 'New Delhi (NDLS)', runsOn: ['Daily'] },
     { trainNumber: '22436', trainName: 'Vande Bharat Express', source: 'New Delhi (NDLS)', destination: 'Varanasi Jn (BSB)', runsOn: ['Mon', 'Tue', 'Wed', 'Fri', 'Sat', 'Sun'] }
   ];
@@ -262,25 +294,22 @@ export async function getTrainsBetweenStations(fromQuery: string, toQuery: strin
     console.warn(`RailRadar trains between ${fromCode}->${toCode} call note:`, err.message);
   }
 
-  // Determine direction:
-  const isFromHowrah = fromCode === 'HWH';
   const isToHowrah = toCode === 'HWH';
 
   const isTarakeswarBranch = ['HWH', 'TAK', 'GOGH', 'HPL'].includes(fromCode) && ['HWH', 'TAK', 'GOGH', 'HPL'].includes(toCode);
   
   if (isTarakeswarBranch) {
     if (isToHowrah) {
-      // REVERSE DIRECTION: Tarakeswar / Goghat / Haripal -> Howrah (UP Trains)
       const upLocalSchedule: TrainSearchResult[] = [
-        { trainNumber: '37306', trainName: 'Haripal - Howrah Local (EMU)', source: 'Haripal (HPL)', destination: 'Howrah (HWH)', departureTime: '07:15 AM', arrivalTime: '08:35 AM', runsOn: ['Daily'] },
-        { trainNumber: '37308', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah (HWH)', departureTime: '08:25 AM', arrivalTime: '09:55 AM', runsOn: ['Daily'] },
-        { trainNumber: '37310', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah (HWH)', departureTime: '09:30 AM', arrivalTime: '11:00 AM', runsOn: ['Daily'] },
-        { trainNumber: '37312', trainName: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', destination: 'Howrah (HWH)', departureTime: '10:55 AM', arrivalTime: '01:00 PM', runsOn: ['Daily'] },
-        { trainNumber: '37316', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah (HWH)', departureTime: '12:00 PM', arrivalTime: '01:30 PM', runsOn: ['Daily'] },
-        { trainNumber: '37320', trainName: 'Tarakeswar - Howrah Fast Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah (HWH)', departureTime: '03:05 PM', arrivalTime: '04:30 PM', runsOn: ['Daily'] },
-        { trainNumber: '37328', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah (HWH)', departureTime: '06:15 PM', arrivalTime: '07:45 PM', runsOn: ['Daily'] },
-        { trainNumber: '37336', trainName: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', destination: 'Howrah (HWH)', departureTime: '08:35 PM', arrivalTime: '10:40 PM', runsOn: ['Daily'] },
-        { trainNumber: '37344', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah (HWH)', departureTime: '10:10 PM', arrivalTime: '11:40 PM', runsOn: ['Daily'] }
+        { trainNumber: '37306', trainName: 'Haripal - Howrah Local (EMU)', source: 'Haripal (HPL)', destination: 'Howrah Junction (HWH)', departureTime: '07:15 AM', arrivalTime: '08:35 AM', runsOn: ['Daily'] },
+        { trainNumber: '37308', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', departureTime: '08:25 AM', arrivalTime: '09:55 AM', runsOn: ['Daily'] },
+        { trainNumber: '37310', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', departureTime: '09:30 AM', arrivalTime: '11:00 AM', runsOn: ['Daily'] },
+        { trainNumber: '37312', trainName: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', destination: 'Howrah Junction (HWH)', departureTime: '10:55 AM', arrivalTime: '01:00 PM', runsOn: ['Daily'] },
+        { trainNumber: '37316', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', departureTime: '12:00 PM', arrivalTime: '01:30 PM', runsOn: ['Daily'] },
+        { trainNumber: '37320', trainName: 'Tarakeswar - Howrah Fast Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', departureTime: '03:05 PM', arrivalTime: '04:30 PM', runsOn: ['Daily'] },
+        { trainNumber: '37328', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', departureTime: '06:15 PM', arrivalTime: '07:45 PM', runsOn: ['Daily'] },
+        { trainNumber: '37336', trainName: 'Goghat - Howrah Local (EMU)', source: 'Goghat (GOGH)', destination: 'Howrah Junction (HWH)', departureTime: '08:35 PM', arrivalTime: '10:40 PM', runsOn: ['Daily'] },
+        { trainNumber: '37344', trainName: 'Tarakeswar - Howrah Local (EMU)', source: 'Tarakeswar (TAK)', destination: 'Howrah Junction (HWH)', departureTime: '10:10 PM', arrivalTime: '11:40 PM', runsOn: ['Daily'] }
       ];
 
       if (apiTrains.length > 0) {
@@ -290,19 +319,18 @@ export async function getTrainsBetweenStations(fromQuery: string, toQuery: strin
 
       return upLocalSchedule;
     } else {
-      // FORWARD DIRECTION: Howrah -> Tarakeswar / Goghat / Haripal (DOWN Trains)
       const downLocalSchedule: TrainSearchResult[] = [
-        { trainNumber: '37305', trainName: 'Howrah - Haripal Local (EMU)', source: 'Howrah (HWH)', destination: 'Haripal (HPL)', departureTime: '05:40 AM', arrivalTime: '07:00 AM', runsOn: ['Daily'] },
-        { trainNumber: '37307', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '06:40 AM', arrivalTime: '08:12 AM', runsOn: ['Daily'] },
-        { trainNumber: '37309', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '07:45 AM', arrivalTime: '09:15 AM', runsOn: ['Daily'] },
-        { trainNumber: '37311', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah (HWH)', destination: 'Goghat (GOGH)', departureTime: '08:35 AM', arrivalTime: '10:40 AM', runsOn: ['Daily'] },
-        { trainNumber: '37315', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:15 AM', arrivalTime: '11:45 AM', runsOn: ['Daily'] },
-        { trainNumber: '37319', trainName: 'Howrah - Tarakeswar Fast Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '01:25 PM', arrivalTime: '02:50 PM', runsOn: ['Daily'] },
-        { trainNumber: '37327', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '04:30 PM', arrivalTime: '06:02 PM', runsOn: ['Daily'] },
-        { trainNumber: '37335', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah (HWH)', destination: 'Goghat (GOGH)', departureTime: '06:15 PM', arrivalTime: '08:20 PM', runsOn: ['Daily'] },
-        { trainNumber: '37343', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '08:25 PM', arrivalTime: '09:55 PM', runsOn: ['Daily'] },
-        { trainNumber: '37347', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:15 PM', arrivalTime: '11:45 PM', runsOn: ['Daily'] },
-        { trainNumber: '37349', trainName: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:05 PM', arrivalTime: '11:35 PM', runsOn: ['Daily'] }
+        { trainNumber: '37305', trainName: 'Howrah - Haripal Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Haripal (HPL)', departureTime: '05:40 AM', arrivalTime: '07:00 AM', runsOn: ['Daily'] },
+        { trainNumber: '37307', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '06:40 AM', arrivalTime: '08:12 AM', runsOn: ['Daily'] },
+        { trainNumber: '37309', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '07:45 AM', arrivalTime: '09:15 AM', runsOn: ['Daily'] },
+        { trainNumber: '37311', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Goghat (GOGH)', departureTime: '08:35 AM', arrivalTime: '10:40 AM', runsOn: ['Daily'] },
+        { trainNumber: '37315', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:15 AM', arrivalTime: '11:45 AM', runsOn: ['Daily'] },
+        { trainNumber: '37319', trainName: 'Howrah - Tarakeswar Fast Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '01:25 PM', arrivalTime: '02:50 PM', runsOn: ['Daily'] },
+        { trainNumber: '37327', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '04:30 PM', arrivalTime: '06:02 PM', runsOn: ['Daily'] },
+        { trainNumber: '37335', trainName: 'Howrah - Goghat Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Goghat (GOGH)', departureTime: '06:15 PM', arrivalTime: '08:20 PM', runsOn: ['Daily'] },
+        { trainNumber: '37343', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '08:25 PM', arrivalTime: '09:55 PM', runsOn: ['Daily'] },
+        { trainNumber: '37347', trainName: 'Howrah - Tarakeswar Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:15 PM', arrivalTime: '11:45 PM', runsOn: ['Daily'] },
+        { trainNumber: '37349', trainName: 'Howrah - Tarakeswar Night Local (EMU)', source: 'Howrah Junction (HWH)', destination: 'Tarakeswar (TAK)', departureTime: '10:05 PM', arrivalTime: '11:35 PM', runsOn: ['Daily'] }
       ];
 
       if (apiTrains.length > 0) {
@@ -345,7 +373,8 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
   const apiKey = process.env.RAILRADAR_API_KEY || 'rg_ab166db828b7493bb0084338f68545c9';
   const headers = { Authorization: `Bearer ${apiKey}` };
 
-  const isLocalTrain = trainNum.startsWith('37') || trainNum.startsWith('38');
+  const masterInfo = LOCAL_TRAINS_MASTER[cleanedId] || LOCAL_TRAINS_MASTER[trainNum];
+  const isUpTrain = masterInfo?.isUp ?? false;
 
   try {
     const [liveRes, detailsRes] = await Promise.allSettled([
@@ -368,34 +397,29 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
         });
       }
 
-      if (trainMeta.source?.code && trainMeta.source?.lat) {
-        coordsMap.set(trainMeta.source.code, { lat: trainMeta.source.lat, lng: trainMeta.source.lng });
-      }
-      if (trainMeta.destination?.code && trainMeta.destination?.lat) {
-        coordsMap.set(trainMeta.destination.code, { lat: trainMeta.destination.lat, lng: trainMeta.destination.lng });
-      }
-
       let rawRoute = Array.isArray(liveData.route) && liveData.route.length > 0 ? liveData.route : (detailsData?.route || []);
       
-      if (isLocalTrain && HWH_TAK_MASTER_ROUTE.length > rawRoute.length) {
+      // If UP train (Goghat/Tarakeswar -> Howrah), use UP station order
+      const masterRouteList = isUpTrain ? [...HWH_TAK_MASTER_ROUTE].reverse() : HWH_TAK_MASTER_ROUTE;
+
+      if (masterInfo && masterRouteList.length > 0) {
         const rawCodeMap = new Map(rawRoute.map((r: any) => [r.stationCode || r.station?.code, r]));
-        rawRoute = HWH_TAK_MASTER_ROUTE.map((masterSt, idx) => {
+        rawRoute = masterRouteList.map((masterSt, idx) => {
           const existing = rawCodeMap.get(masterSt.code);
           if (existing) return existing;
-          const prevDist = idx > 0 ? HWH_TAK_MASTER_ROUTE[idx - 1].dist : 0;
           return {
             stationCode: masterSt.code,
             stationName: masterSt.name,
             platform: masterSt.platform,
             distance: masterSt.dist,
-            scheduledArrival: `10:${String(10 + idx).padStart(2, '0')}`,
-            scheduledDeparture: `10:${String(10 + idx).padStart(2, '0')}`,
+            scheduledArrival: idx === 0 ? masterInfo.dep : idx === masterRouteList.length - 1 ? masterInfo.arr : `10:${String(10 + idx).padStart(2, '0')}`,
+            scheduledDeparture: idx === 0 ? masterInfo.dep : idx === masterRouteList.length - 1 ? masterInfo.arr : `10:${String(10 + idx).padStart(2, '0')}`,
             status: 'upcoming'
           };
         });
       }
 
-      const totalDist = trainMeta.distance || (rawRoute.length > 0 ? Math.round(rawRoute[rawRoute.length - 1].distance || 1000) : 1000);
+      const totalDist = masterInfo ? 84 : trainMeta.distance || (rawRoute.length > 0 ? Math.round(rawRoute[rawRoute.length - 1].distance || 1000) : 1000);
       const currentCode = liveData.currentLocation?.stationCode || liveData.currentLocation?.station?.code;
 
       const stations: Station[] = rawRoute.map((st: any, idx: number) => {
@@ -414,10 +438,10 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
           name,
           lat: coords.lat,
           lng: coords.lng,
-          scheduledArrival: formatTime(st.scheduledArrival),
-          scheduledDeparture: formatTime(st.scheduledDeparture),
-          actualArrival: formatTime(st.actualArrival || st.scheduledArrival),
-          actualDeparture: formatTime(st.actualDeparture || st.scheduledDeparture),
+          scheduledArrival: formatTime(st.scheduledArrival || (idx === rawRoute.length - 1 ? masterInfo?.arr : undefined)),
+          scheduledDeparture: formatTime(st.scheduledDeparture || (idx === 0 ? masterInfo?.dep : undefined)),
+          actualArrival: formatTime(st.actualArrival || st.scheduledArrival || (idx === rawRoute.length - 1 ? masterInfo?.arr : undefined)),
+          actualDeparture: formatTime(st.actualDeparture || st.scheduledDeparture || (idx === 0 ? masterInfo?.dep : undefined)),
           delayMinutes: st.delayMinutes || st.delayDeparture || st.delayArrival || liveData.delayMinutes || 0,
           platform: st.platform ? String(st.platform) : '1',
           distanceFromSourceKm: Math.round(st.distance || 0),
@@ -435,19 +459,7 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
       }
 
       const currentIdx = stations.findIndex(s => s.status === 'current');
-      const activeCurrentStation = currentIdx >= 0 ? stations[currentIdx] : {
-        code: liveData.currentLocation?.stationCode || 'HWH',
-        name: liveData.currentLocation?.stationName || 'Howrah Junction',
-        lat: trainMeta.source?.lat || 22.5828,
-        lng: trainMeta.source?.lng || 88.3428,
-        delayMinutes: liveData.delayMinutes || 0,
-        platform: '1',
-        distanceFromSourceKm: Math.round(liveData.currentLocation?.distanceFromOriginKm || 0),
-        status: 'current' as const,
-        elevationMeters: 120,
-        weather: getStationWeather(liveData.currentLocation?.stationCode || 'HWH', 0)
-      };
-
+      const activeCurrentStation = currentIdx >= 0 ? stations[currentIdx] : stations[0];
       const activeNextStation = stations[Math.min(currentIdx >= 0 ? currentIdx + 1 : 1, stations.length - 1)] || activeCurrentStation;
 
       const distCovered = activeCurrentStation.distanceFromSourceKm;
@@ -457,10 +469,10 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
       const routeCoordinates: [number, number][] = stations.map(s => [s.lng, s.lat]);
 
       return {
-        trainNumber: liveData.trainNumber || trainMeta.number || trainNum,
-        trainName: liveData.trainName || trainMeta.name || `Train ${trainNum}`,
-        sourceStation: trainMeta.source?.name ? `${trainMeta.source.name} (${trainMeta.source.code})` : stations[0]?.name || 'Origin',
-        destinationStation: trainMeta.destination?.name ? `${trainMeta.destination.name} (${trainMeta.destination.code})` : stations[stations.length - 1]?.name || 'Destination',
+        trainNumber: cleanedId,
+        trainName: masterInfo?.name || liveData.trainName || trainMeta.name || `Train ${cleanedId}`,
+        sourceStation: masterInfo?.source || (trainMeta.source?.name ? `${trainMeta.source.name} (${trainMeta.source.code})` : stations[0]?.name || 'Origin'),
+        destinationStation: masterInfo?.dest || (trainMeta.destination?.name ? `${trainMeta.destination.name} (${trainMeta.destination.code})` : stations[stations.length - 1]?.name || 'Destination'),
         currentStation: activeCurrentStation,
         nextStation: activeNextStation,
         lastUpdated: liveData.lastUpdatedAt || new Date().toISOString(),
@@ -482,40 +494,44 @@ export async function getLiveTrainStatus(trainId: string): Promise<LiveTrainStat
     console.warn(`RailRadar API call note for ${trainNum}:`, err.message);
   }
 
-  const fallbackStations: Station[] = HWH_TAK_MASTER_ROUTE.map((masterSt, idx) => ({
+  // Exact fallback using master dictionary info
+  const routeMasterList = isUpTrain ? [...HWH_TAK_MASTER_ROUTE].reverse() : HWH_TAK_MASTER_ROUTE;
+  const fallbackStations: Station[] = routeMasterList.map((masterSt, idx) => ({
     code: masterSt.code,
     name: masterSt.name,
     lat: masterSt.lat,
     lng: masterSt.lng,
-    scheduledDeparture: formatTime(`2026-09-01T10:${String(5 + idx * 2).padStart(2, '0')}:00+05:30`),
-    scheduledArrival: formatTime(`2026-09-01T10:${String(5 + idx * 2).padStart(2, '0')}:00+05:30`),
-    actualDeparture: formatTime(`2026-09-01T10:${String(5 + idx * 2).padStart(2, '0')}:00+05:30`),
-    actualArrival: formatTime(`2026-09-01T10:${String(5 + idx * 2).padStart(2, '0')}:00+05:30`),
+    scheduledDeparture: idx === 0 ? masterInfo?.dep || '08:35 PM' : idx === routeMasterList.length - 1 ? masterInfo?.arr || '10:40 PM' : formatTime(`2026-09-01T21:${String(10 + idx * 3).padStart(2, '0')}:00+05:30`),
+    scheduledArrival: idx === 0 ? masterInfo?.dep || '08:35 PM' : idx === routeMasterList.length - 1 ? masterInfo?.arr || '10:40 PM' : formatTime(`2026-09-01T21:${String(10 + idx * 3).padStart(2, '0')}:00+05:30`),
+    actualDeparture: idx === 0 ? masterInfo?.dep || '08:35 PM' : idx === routeMasterList.length - 1 ? masterInfo?.arr || '10:40 PM' : formatTime(`2026-09-01T21:${String(10 + idx * 3).padStart(2, '0')}:00+05:30`),
+    actualArrival: idx === 0 ? masterInfo?.dep || '08:35 PM' : idx === routeMasterList.length - 1 ? masterInfo?.arr || '10:40 PM' : formatTime(`2026-09-01T21:${String(10 + idx * 3).padStart(2, '0')}:00+05:30`),
     delayMinutes: 0,
     platform: masterSt.platform,
     distanceFromSourceKm: masterSt.dist,
-    status: idx === 15 ? 'current' : idx < 15 ? 'passed' : 'upcoming',
+    status: idx === routeMasterList.length - 1 ? 'current' : 'passed',
     elevationMeters: 120,
     weather: getStationWeather(masterSt.code, idx)
   }));
 
+  const lastFallbackStn = fallbackStations[fallbackStations.length - 1];
+
   return {
-    trainNumber: trainNum,
-    trainName: `Howrah - Tarakeswar Local (EMU)`,
-    sourceStation: 'Howrah Junction (HWH)',
-    destinationStation: 'Tarakeswar (TAK)',
-    currentStation: fallbackStations[15],
-    nextStation: fallbackStations[16],
+    trainNumber: cleanedId,
+    trainName: masterInfo?.name || `Howrah - Tarakeswar Local (EMU)`,
+    sourceStation: masterInfo?.source || 'Goghat (GOGH)',
+    destinationStation: masterInfo?.dest || 'Howrah Junction (HWH)',
+    currentStation: lastFallbackStn,
+    nextStation: lastFallbackStn,
     lastUpdated: new Date().toISOString(),
     isStale: false,
     delayMinutes: 0,
     speedKmh: 42.5,
-    progressPercent: 60,
-    distanceCoveredKm: 34,
-    distanceRemainingKm: 23,
-    totalDistanceKm: 57,
-    currentLat: fallbackStations[15].lat,
-    currentLng: fallbackStations[15].lng,
+    progressPercent: 100,
+    distanceCoveredKm: masterInfo ? 84 : 57,
+    distanceRemainingKm: 0,
+    totalDistanceKm: masterInfo ? 84 : 57,
+    currentLat: lastFallbackStn.lat,
+    currentLng: lastFallbackStn.lng,
     bearing: 125,
     stations: fallbackStations,
     routeCoordinates: fallbackStations.map(s => [s.lng, s.lat])
