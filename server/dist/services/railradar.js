@@ -413,6 +413,8 @@ async function getLiveTrainStatus(trainId) {
     const destCode = masterInfo?.destCode || (masterInfo?.isUp ? 'HWH' : 'TAK');
     const masterRouteList = getMasterRouteForTrain(srcCode, destCode);
     const baseDepTime = masterInfo?.dep || '10:15 PM';
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
     try {
         const [liveRes, detailsRes] = await Promise.allSettled([
             axios_1.default.get(`${RAILRADAR_BASE_URL}/trains/${trainNum}/live`, { headers, timeout: 6000 }),
@@ -452,7 +454,16 @@ async function getLiveTrainStatus(trainId) {
                 });
             }
             const totalDist = masterInfo ? (masterRouteList[masterRouteList.length - 1]?.dist || 57) : trainMeta.distance || 57;
-            const currentCode = liveData.currentLocation?.stationCode || liveData.currentLocation?.station?.code;
+            // Realtime active station calculation based on current time of day
+            let liveActiveIdx = 0;
+            masterRouteList.forEach((st, idx) => {
+                const minsOffset = Math.round(idx * 3.5);
+                const stTimeStr = idx === 0 ? masterInfo?.dep || baseDepTime : idx === masterRouteList.length - 1 ? masterInfo?.arr || '11:45 PM' : addMinutesToTime(baseDepTime, minsOffset);
+                const stMins = timeToMinutes(stTimeStr);
+                if (stMins <= currentMins) {
+                    liveActiveIdx = idx;
+                }
+            });
             const stations = rawRoute.map((st, idx) => {
                 const code = st.stationCode || st.station?.code || `STN-${idx}`;
                 const name = st.stationName || st.station?.name || `Station ${code}`;
@@ -460,8 +471,8 @@ async function getLiveTrainStatus(trainId) {
                     lat: (trainMeta.source?.lat || 22.5828) + (idx * 0.02),
                     lng: (trainMeta.source?.lng || 88.3428) - (idx * 0.02)
                 };
-                const isCurrentLoc = currentCode ? code === currentCode : (st.status === 'at-station' || st.status === 'current');
-                const isPassed = st.status === 'departed' || (!isCurrentLoc && idx < (rawRoute.findIndex((r) => r.stationCode === currentCode || r.status === 'at-station' || r.status === 'current') || 1));
+                const isCurrentLoc = idx === liveActiveIdx;
+                const isPassed = idx < liveActiveIdx;
                 const minsOffset = Math.round(idx * 3.5);
                 const computedTime = addMinutesToTime(baseDepTime, minsOffset);
                 return {
@@ -481,15 +492,8 @@ async function getLiveTrainStatus(trainId) {
                     weather: getStationWeather(code, idx)
                 };
             });
-            const hasCurrent = stations.some(s => s.status === 'current');
-            if (!hasCurrent && stations.length > 0) {
-                const matchIdx = stations.findIndex(s => s.code === currentCode);
-                const targetIdx = matchIdx >= 0 ? matchIdx : Math.min(1, stations.length - 1);
-                stations[targetIdx].status = 'current';
-            }
-            const currentIdx = stations.findIndex(s => s.status === 'current');
-            const activeCurrentStation = currentIdx >= 0 ? stations[currentIdx] : stations[0];
-            const activeNextStation = stations[Math.min(currentIdx >= 0 ? currentIdx + 1 : 1, stations.length - 1)] || activeCurrentStation;
+            const activeCurrentStation = stations[liveActiveIdx] || stations[0];
+            const activeNextStation = stations[Math.min(liveActiveIdx + 1, stations.length - 1)] || activeCurrentStation;
             const distCovered = activeCurrentStation.distanceFromSourceKm;
             const distRemaining = Math.max(totalDist - distCovered, 0);
             const progressPercent = totalDist > 0 ? Math.min(Math.round((distCovered / totalDist) * 100), 100) : 50;
@@ -520,6 +524,16 @@ async function getLiveTrainStatus(trainId) {
     catch (err) {
         console.warn(`RailRadar API call note for ${trainNum}:`, err.message);
     }
+    // Fallback with real-time station positioning based on current time of day
+    let activeIdx = 0;
+    masterRouteList.forEach((st, idx) => {
+        const minsOffset = Math.round(idx * 3.5);
+        const stTimeStr = idx === 0 ? masterInfo?.dep || baseDepTime : idx === masterRouteList.length - 1 ? masterInfo?.arr || '11:45 PM' : addMinutesToTime(baseDepTime, minsOffset);
+        const stMins = timeToMinutes(stTimeStr);
+        if (stMins <= currentMins) {
+            activeIdx = idx;
+        }
+    });
     const fallbackStations = masterRouteList.map((masterSt, idx) => {
         const minsOffset = Math.round(idx * 3.5);
         const computedTime = addMinutesToTime(baseDepTime, minsOffset);
@@ -536,29 +550,34 @@ async function getLiveTrainStatus(trainId) {
             delayMinutes: 0,
             platform: masterSt.platform,
             distanceFromSourceKm: masterSt.dist,
-            status: idx === masterRouteList.length - 1 ? 'current' : 'passed',
+            status: idx === activeIdx ? 'current' : idx < activeIdx ? 'passed' : 'upcoming',
             elevationMeters: 120,
             weather: getStationWeather(masterSt.code, idx)
         };
     });
-    const lastFallbackStn = fallbackStations[fallbackStations.length - 1];
+    const activeStn = fallbackStations[activeIdx] || fallbackStations[0];
+    const nextStn = fallbackStations[Math.min(activeIdx + 1, fallbackStations.length - 1)] || activeStn;
+    const totalDist = masterRouteList[masterRouteList.length - 1]?.dist || 57;
+    const distCovered = activeStn.distanceFromSourceKm;
+    const distRemaining = Math.max(totalDist - distCovered, 0);
+    const progressPercent = totalDist > 0 ? Math.min(Math.round((distCovered / totalDist) * 100), 100) : 50;
     return {
         trainNumber: cleanedId,
         trainName: masterInfo?.name || `Howrah - Tarakeswar Local (EMU)`,
         sourceStation: masterInfo?.source || 'Howrah Junction (HWH)',
         destinationStation: masterInfo?.dest || 'Tarakeswar (TAK)',
-        currentStation: lastFallbackStn,
-        nextStation: lastFallbackStn,
+        currentStation: activeStn,
+        nextStation: nextStn,
         lastUpdated: new Date().toISOString(),
         isStale: false,
         delayMinutes: 0,
         speedKmh: 42.5,
-        progressPercent: 100,
-        distanceCoveredKm: masterRouteList[masterRouteList.length - 1]?.dist || 57,
-        distanceRemainingKm: 0,
-        totalDistanceKm: masterRouteList[masterRouteList.length - 1]?.dist || 57,
-        currentLat: lastFallbackStn.lat,
-        currentLng: lastFallbackStn.lng,
+        progressPercent,
+        distanceCoveredKm: distCovered,
+        distanceRemainingKm: distRemaining,
+        totalDistanceKm: totalDist,
+        currentLat: activeStn.lat,
+        currentLng: activeStn.lng,
         bearing: 125,
         stations: fallbackStations,
         routeCoordinates: fallbackStations.map(s => [s.lng, s.lat])

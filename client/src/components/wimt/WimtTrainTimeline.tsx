@@ -8,34 +8,58 @@ interface WimtTrainTimelineProps {
   onRefresh: () => void;
 }
 
-function isTrainRunCompleted(lastArrTimeStr?: string, progressPercent: number = 0, distanceRemainingKm: number = 999): boolean {
-  if (progressPercent >= 100 || distanceRemainingKm === 0) return true;
-  if (!lastArrTimeStr) return false;
-
-  const cleanArr = String(lastArrTimeStr).trim();
-  let arrHours = 0, arrMins = 0;
-
-  const m12 = cleanArr.match(/^(\d{1,2}):(\d{2})\s*(am|pm)/i);
-  if (m12) {
-    arrHours = parseInt(m12[1], 10);
-    arrMins = parseInt(m12[2], 10);
-    const ampm = m12[3].toUpperCase();
-    if (ampm === 'PM' && arrHours < 12) arrHours += 12;
-    if (ampm === 'AM' && arrHours === 12) arrHours = 0;
+function timeToMinutes(timeStr?: string): number {
+  if (!timeStr) return 0;
+  const str = String(timeStr).trim();
+  let h = 0, m = 0;
+  if (str.includes('PM') || str.includes('pm')) {
+    const parts = str.replace(/(AM|PM|am|pm)/gi, '').trim().split(':');
+    h = parseInt(parts[0], 10) || 0;
+    m = parseInt(parts[1], 10) || 0;
+    if (h < 12) h += 12;
+  } else if (str.includes('AM') || str.includes('am')) {
+    const parts = str.replace(/(AM|PM|am|pm)/gi, '').trim().split(':');
+    h = parseInt(parts[0], 10) || 0;
+    m = parseInt(parts[1], 10) || 0;
+    if (h === 12) h = 0;
   } else {
-    const parts = cleanArr.split(':');
-    arrHours = parseInt(parts[0], 10) || 0;
-    arrMins = parseInt(parts[1], 10) || 0;
+    const parts = str.split(':');
+    h = parseInt(parts[0], 10) || 0;
+    m = parseInt(parts[1], 10) || 0;
   }
+  return h * 60 + m;
+}
+
+function isTrainRunCompleted(status: LiveTrainStatus): boolean {
+  const lastStn = status.stations[status.stations.length - 1];
+  const firstStn = status.stations[0];
+  if (!lastStn || !firstStn) return false;
+
+  const lastTimeStr = lastStn.actualArrival || lastStn.scheduledArrival;
+  const firstTimeStr = firstStn.actualDeparture || firstStn.scheduledDeparture;
+
+  const lastTimeMins = timeToMinutes(lastTimeStr);
+  const firstTimeMins = timeToMinutes(firstTimeStr);
 
   const now = new Date();
-  const arrDateToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), arrHours, arrMins);
-  const arrDateYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, arrHours, arrMins);
+  const currentMins = now.getHours() * 60 + now.getMinutes();
 
-  const diffHoursToday = (now.getTime() - arrDateToday.getTime()) / (1000 * 3600);
-  const diffHoursYesterday = (now.getTime() - arrDateYesterday.getTime()) / (1000 * 3600);
+  const isOvernight = lastTimeMins < firstTimeMins;
 
-  return (diffHoursToday > 0 && diffHoursToday < 20) || (diffHoursYesterday > 0 && diffHoursYesterday < 20);
+  if (isOvernight) {
+    // Overnight train: e.g. Dep 11:05 PM (1385m), Arr 12:35 AM (95m)
+    if (currentMins >= lastTimeMins && currentMins < firstTimeMins) {
+      return true;
+    }
+    return false;
+  }
+
+  // Same-day train: e.g. Dep 08:25 PM (1225m), Arr 09:55 PM (1195m)
+  if (currentMins >= lastTimeMins && currentMins > firstTimeMins) {
+    return true;
+  }
+
+  return false;
 }
 
 export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTrainTimelineProps) {
@@ -89,9 +113,9 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
   };
 
   const lastStn = status.stations[status.stations.length - 1];
-  const lastArrTime = lastStn?.actualArrival || lastStn?.scheduledArrival || '10:30 PM';
+  const lastArrTime = lastStn?.actualArrival || lastStn?.scheduledArrival || '12:35 AM';
 
-  const isCompletedRun = isTrainRunCompleted(displayTime(lastArrTime), status.progressPercent, status.distanceRemainingKm);
+  const isCompletedRun = isTrainRunCompleted(status);
 
   // Find index of current train position
   const currentIdx = status.stations.findIndex(
@@ -102,7 +126,7 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
     ? status.stations.length - 1
     : currentIdx >= 0
     ? currentIdx
-    : Math.min(1, status.stations.length - 1);
+    : 0;
 
   // Check alarm trigger conditions
   useEffect(() => {
