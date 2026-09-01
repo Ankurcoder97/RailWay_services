@@ -5,9 +5,11 @@
   "scripts": {
     "install:server": "cd server && npm install --include=dev",
     "install:client": "cd client && npm install --include=dev",
-    "build:server": "cd server && npm run build",
-    "build:client": "cd client && npm run build",
-    "build": "npm run install:server && npm run build:server",
+    "build:server": "cd server && npm install && npm run build",
+    "build:client": "cd client && npm install && npm run build",
+    "build": "npm run build:server && npm run build:client",
+    "start:server": "cd server && npm start",
+    "start:client": "cd client && npm run dev",
     "start": "cd server && npm start"
   }
 }
