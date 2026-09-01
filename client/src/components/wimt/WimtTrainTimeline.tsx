@@ -30,42 +30,26 @@ function timeToMinutes(timeStr?: string): number {
   return h * 60 + m;
 }
 
-function getTrainRunState(status: LiveTrainStatus): { isCompleted: boolean; isUpcoming: boolean; isRunning: boolean } {
-  const lastStn = status.stations[status.stations.length - 1];
-  const firstStn = status.stations[0];
-  if (!lastStn || !firstStn) return { isCompleted: false, isUpcoming: false, isRunning: true };
-
-  const lastTimeStr = lastStn.actualArrival || lastStn.scheduledArrival;
-  const firstTimeStr = firstStn.actualDeparture || firstStn.scheduledDeparture;
-
-  const lastTimeMins = timeToMinutes(lastTimeStr);
-  const firstTimeMins = timeToMinutes(firstTimeStr);
-
+function getIndianStandardTime(): { hours: number; minutes: number; totalMinutes: number } {
   const now = new Date();
-  const currentMins = now.getHours() * 60 + now.getMinutes();
-
-  const isOvernight = lastTimeMins < firstTimeMins;
-
-  if (isOvernight) {
-    // Overnight train: e.g. Dep 11:05 PM (1385m), Arr 12:35 AM (35m)
-    if (currentMins >= firstTimeMins || currentMins <= lastTimeMins) {
-      return { isCompleted: false, isUpcoming: false, isRunning: true };
-    } else if (currentMins > lastTimeMins && currentMins < lastTimeMins + 180) {
-      return { isCompleted: true, isUpcoming: false, isRunning: false };
-    } else {
-      return { isCompleted: false, isUpcoming: true, isRunning: false };
-    }
-  } else {
-    // Same-day train: e.g. Dep 10:15 AM (615m), Arr 11:45 AM (705m)
-    if (currentMins >= firstTimeMins && currentMins <= lastTimeMins) {
-      return { isCompleted: false, isUpcoming: false, isRunning: true };
-    } else if (currentMins > lastTimeMins && currentMins < lastTimeMins + 180) {
-      return { isCompleted: true, isUpcoming: false, isRunning: false };
-    } else if (currentMins < firstTimeMins) {
-      return { isCompleted: false, isUpcoming: true, isRunning: false };
-    } else {
-      return { isCompleted: true, isUpcoming: false, isRunning: false };
-    }
+  try {
+    const istFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      hour12: false,
+      hour: 'numeric',
+      minute: 'numeric'
+    });
+    const parts = istFormatter.formatToParts(now);
+    let h = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    if (h === 24) h = 0;
+    const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+    return { hours: h, minutes: m, totalMinutes: h * 60 + m };
+  } catch (e) {
+    const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+    const istDate = new Date(utcTime + 330 * 60000);
+    const h = istDate.getHours();
+    const m = istDate.getMinutes();
+    return { hours: h, minutes: m, totalMinutes: h * 60 + m };
   }
 }
 
@@ -123,20 +107,68 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
   const lastStn = status.stations[status.stations.length - 1];
   const lastArrTime = lastStn?.actualArrival || lastStn?.scheduledArrival || '12:35 AM';
 
-  const runState = getTrainRunState(status);
+  const ist = getIndianStandardTime();
+  const currentMins = ist.totalMinutes;
+  const firstTimeMins = timeToMinutes(firstStn?.actualDeparture || firstStn?.scheduledDeparture || '11:05 PM');
+  const lastTimeMins = timeToMinutes(lastStn?.actualArrival || lastStn?.scheduledArrival || '12:35 AM');
+  const isOvernight = lastTimeMins < firstTimeMins;
+  const totalDuration = isOvernight ? (lastTimeMins + 1440 - firstTimeMins) : (lastTimeMins - firstTimeMins);
 
-  // Find index of current train position
-  const currentIdx = status.stations.findIndex(
-    s => s.status === 'current' || s.code === status.currentStation?.code || s.name === status.currentStation?.name
-  );
+  let elapsedMins = 0;
+  let isTrainRunning = false;
+  let isTrainCompleted = false;
+  let isTrainUpcoming = false;
 
-  const activeCurrentIdx = runState.isCompleted
-    ? status.stations.length - 1
-    : runState.isUpcoming
-    ? 0
-    : currentIdx >= 0
-    ? currentIdx
-    : 0;
+  if (isOvernight) {
+    if (currentMins >= firstTimeMins) {
+      elapsedMins = currentMins - firstTimeMins;
+      isTrainRunning = true;
+    } else if (currentMins <= lastTimeMins) {
+      elapsedMins = (currentMins + 1440) - firstTimeMins;
+      isTrainRunning = true;
+    } else if (currentMins > lastTimeMins && currentMins < lastTimeMins + 180) {
+      elapsedMins = totalDuration;
+      isTrainCompleted = true;
+    } else {
+      elapsedMins = 0;
+      isTrainUpcoming = true;
+    }
+  } else {
+    if (currentMins >= firstTimeMins && currentMins <= lastTimeMins) {
+      elapsedMins = currentMins - firstTimeMins;
+      isTrainRunning = true;
+    } else if (currentMins > lastTimeMins && currentMins < lastTimeMins + 180) {
+      elapsedMins = totalDuration;
+      isTrainCompleted = true;
+    } else if (currentMins < firstTimeMins) {
+      elapsedMins = 0;
+      isTrainUpcoming = true;
+    } else {
+      elapsedMins = totalDuration;
+      isTrainCompleted = true;
+    }
+  }
+
+  // Determine activeCurrentIdx by comparing station schedule time offsets
+  let computedActiveIdx = 0;
+  if (isTrainRunning) {
+    status.stations.forEach((st, idx) => {
+      const stTime = timeToMinutes(st.actualDeparture || st.scheduledDeparture || st.actualArrival || st.scheduledArrival);
+      const stOffset = isOvernight
+        ? (stTime >= firstTimeMins ? stTime - firstTimeMins : (stTime + 1440) - firstTimeMins)
+        : (stTime - firstTimeMins);
+      if (stOffset <= elapsedMins) {
+        computedActiveIdx = idx;
+      }
+    });
+  } else if (isTrainCompleted) {
+    computedActiveIdx = status.stations.length - 1;
+  } else {
+    computedActiveIdx = 0;
+  }
+
+  const activeCurrentIdx = computedActiveIdx;
+
 
   // Check alarm trigger conditions
   useEffect(() => {
@@ -202,24 +234,24 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
 
       {/* Live Status Banner */}
       <div className={`p-4 text-white font-bold text-sm flex items-center justify-between shadow-sm ${
-        runState.isCompleted
+        isTrainCompleted
           ? 'bg-[#2E7D32]'
-          : runState.isUpcoming
+          : isTrainUpcoming
           ? 'bg-[#1565C0]'
           : status.delayMinutes > 0
           ? 'bg-[#C62828]'
           : 'bg-[#2E7D32]'
       }`}>
         <div className="flex items-center gap-2">
-          {runState.isCompleted ? (
+          {isTrainCompleted ? (
             <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
           ) : (
             <div className="w-3 h-3 rounded-full bg-white animate-ping shrink-0"></div>
           )}
           <span>
-            {runState.isCompleted
+            {isTrainCompleted
               ? `Reached Destination (Completed at ${displayTime(lastArrTime)})`
-              : runState.isUpcoming
+              : isTrainUpcoming
               ? `Scheduled (Departs at ${displayTime(firstStn?.scheduledDeparture || '11:05 PM')})`
               : status.delayMinutes === 0
               ? 'Live Running • On Time'
@@ -227,9 +259,9 @@ export default function WimtTrainTimeline({ status, onBack, onRefresh }: WimtTra
           </span>
         </div>
         <div className="text-xs font-normal">
-          {runState.isCompleted ? 'Arrived at:' : runState.isUpcoming ? 'Origin:' : 'Current:'}{' '}
+          {isTrainCompleted ? 'Arrived at:' : isTrainUpcoming ? 'Origin:' : 'Current:'}{' '}
           <strong className="underline font-bold">
-            {runState.isCompleted ? lastStn?.name || status.destinationStation : status.stations[activeCurrentIdx]?.name || status.currentStation?.name || 'En Route'}
+            {isTrainCompleted ? lastStn?.name || status.destinationStation : status.stations[activeCurrentIdx]?.name || status.currentStation?.name || 'En Route'}
           </strong>
         </div>
       </div>

@@ -151,6 +151,46 @@ function addMinutesToTime(baseTime12h, minutesToAdd) {
     const formattedM = m < 10 ? `0${m}` : `${m}`;
     return `${formattedH}:${formattedM} ${ampm}`;
 }
+function getIndianStandardTime() {
+    const now = new Date();
+    try {
+        const istFormatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Kolkata',
+            hour12: false,
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric'
+        });
+        const parts = istFormatter.formatToParts(now);
+        let h = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+        if (h === 24)
+            h = 0;
+        const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+        const s = parseInt(parts.find(p => p.type === 'second')?.value || '0', 10);
+        return {
+            hours: h,
+            minutes: m,
+            seconds: s,
+            totalMinutes: h * 60 + m + s / 60,
+            timeStr: `${h < 10 ? '0' + h : h}:${m < 10 ? '0' + m : m}`
+        };
+    }
+    catch (e) {
+        // Fallback +5:30 offset
+        const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+        const istDate = new Date(utcTime + 330 * 60000);
+        const h = istDate.getHours();
+        const m = istDate.getMinutes();
+        const s = istDate.getSeconds();
+        return {
+            hours: h,
+            minutes: m,
+            seconds: s,
+            totalMinutes: h * 60 + m + s / 60,
+            timeStr: `${h < 10 ? '0' + h : h}:${m < 10 ? '0' + m : m}`
+        };
+    }
+}
 function getJourneyDurationMins(depTimeStr, arrTimeStr) {
     const depM = timeToMinutes(depTimeStr);
     const arrM = timeToMinutes(arrTimeStr);
@@ -160,11 +200,12 @@ function getJourneyDurationMins(depTimeStr, arrTimeStr) {
     // Overnight train (crossing midnight)
     return (arrM + 1440) - depM;
 }
-function getElapsedMinutesSinceDeparture(depTimeStr, arrTimeStr, now = new Date()) {
+function getElapsedMinutesSinceDeparture(depTimeStr, arrTimeStr) {
     const depM = timeToMinutes(depTimeStr);
     const arrM = timeToMinutes(arrTimeStr);
     const totalDurationMins = arrM >= depM ? (arrM - depM) : ((arrM + 1440) - depM);
-    const currentMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+    const ist = getIndianStandardTime();
+    const currentMins = ist.totalMinutes;
     const isOvernight = arrM < depM;
     if (isOvernight) {
         // Overnight: e.g. Dep 11:05 PM (1385m), Arr 12:35 AM (35m), Total 90m
@@ -486,8 +527,7 @@ async function getLiveTrainStatus(trainId) {
     const masterRouteList = getMasterRouteForTrain(srcCode, destCode);
     const baseDepTime = masterInfo?.dep || '11:05 PM';
     const baseArrTime = masterInfo?.arr || '12:35 AM';
-    const now = new Date();
-    const timingState = getElapsedMinutesSinceDeparture(baseDepTime, baseArrTime, now);
+    const timingState = getElapsedMinutesSinceDeparture(baseDepTime, baseArrTime);
     const totalDist = masterInfo ? (masterRouteList[masterRouteList.length - 1]?.dist || 57) : 57;
     const totalDuration = timingState.totalDurationMins || 90;
     // Build route station timings based on true physical distance proportions
