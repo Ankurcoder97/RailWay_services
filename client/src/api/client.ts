@@ -10,6 +10,12 @@ export async function fetchTrainSearch(query: string): Promise<TrainSearchResult
   return res.json();
 }
 
+export async function fetchTrainsBetween(from: string, to: string): Promise<TrainSearchResult[]> {
+  const res = await fetch(`${API_BASE}/trains/between?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+  if (!res.ok) throw new Error('Failed to fetch trains between stations');
+  return res.json();
+}
+
 export async function fetchLiveStatus(trainNumber: string): Promise<LiveTrainStatus> {
   const res = await fetch(`${API_BASE}/trains/${encodeURIComponent(trainNumber)}/status`);
   if (!res.ok) throw new Error('Failed to fetch train status');

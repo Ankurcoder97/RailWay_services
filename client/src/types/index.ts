@@ -43,6 +43,8 @@ export interface TrainSearchResult {
   source: string;
   destination: string;
   runsOn: string[];
+  departureTime?: string;
+  arrivalTime?: string;
 }
 
 export interface WeatherInfo {
