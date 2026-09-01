@@ -1,9 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+interface StationOption {
+  code: string;
+  name: string;
+  state: string;
+}
+
 interface TrainStore {
   selectedTrainNumber: string;
   setSelectedTrainNumber: (trainNum: string) => void;
+  fromStation: StationOption | null;
+  setFromStation: (station: StationOption | null) => void;
+  toStation: StationOption | null;
+  setToStation: (station: StationOption | null) => void;
   recentSearches: string[];
   addRecentSearch: (query: string) => void;
   clearRecentSearches: () => void;
@@ -22,6 +32,10 @@ export const useTrainStore = create<TrainStore>()(
     (set, get) => ({
       selectedTrainNumber: '22436', // Default Vande Bharat Express
       setSelectedTrainNumber: (trainNum: string) => set({ selectedTrainNumber: trainNum }),
+      fromStation: null,
+      setFromStation: (station: StationOption | null) => set({ fromStation: station }),
+      toStation: null,
+      setToStation: (station: StationOption | null) => set({ toStation: station }),
       recentSearches: ['22436', '12951', '12002'],
       addRecentSearch: (query: string) => {
         const current = get().recentSearches;
@@ -49,6 +63,8 @@ export const useTrainStore = create<TrainStore>()(
       name: 'railgaadi-storage',
       partialize: (state) => ({
         selectedTrainNumber: state.selectedTrainNumber,
+        fromStation: state.fromStation,
+        toStation: state.toStation,
         recentSearches: state.recentSearches,
         favouriteTrains: state.favouriteTrains,
         refreshIntervalSec: state.refreshIntervalSec,
